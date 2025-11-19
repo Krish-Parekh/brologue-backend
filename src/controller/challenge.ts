@@ -2,7 +2,7 @@ import type { Request, Response } from "express";
 import { challengeWeeks } from "../data/challenge";
 import type { ApiResponse } from "../types/response";
 import type { Week } from "../types/challenge";
-import { StatusCodes } from "http-status-codes";
+import { StatusCodes, ReasonPhrases } from "http-status-codes";
 import { z } from "zod";
 
 const weekRequestSchema = z.object({
@@ -32,7 +32,7 @@ export const getAllWeeks = async (_req: Request, res: Response) => {
     } catch (error) {
         const response: ApiResponse<null> = {
             code: StatusCodes.INTERNAL_SERVER_ERROR,
-            message: "Failed to get challenges",
+            message: ReasonPhrases.INTERNAL_SERVER_ERROR,
         };
         return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(response);
     }
@@ -44,7 +44,7 @@ export const getWeek = async (req: Request, res: Response) => {
         if (!success) {
             const response: ApiResponse<null> = {
                 code: StatusCodes.BAD_REQUEST,
-                message: "Invalid request",
+                message: ReasonPhrases.BAD_REQUEST,
             };
             return res.status(StatusCodes.BAD_REQUEST).json(response);
         }
@@ -79,7 +79,7 @@ export const getDay = async (req: Request, res: Response) => {
         if (!success) {
             const response: ApiResponse<null> = {
                 code: StatusCodes.BAD_REQUEST,
-                message: "Invalid request",
+                message: ReasonPhrases.BAD_REQUEST,
             };
             return res.status(StatusCodes.BAD_REQUEST).json(response);
         }
@@ -110,7 +110,7 @@ export const getDay = async (req: Request, res: Response) => {
     } catch (error) {
         const response: ApiResponse<null> = {
             code: StatusCodes.INTERNAL_SERVER_ERROR,
-            message: "Failed to get day",
+            message: ReasonPhrases.INTERNAL_SERVER_ERROR,
         };
         return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(response);
     }
