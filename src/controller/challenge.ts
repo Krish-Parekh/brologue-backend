@@ -20,7 +20,8 @@ export const getAllWeeks = async (_req: Request, res: Response) => {
             return {
                 id: week.id,
                 title: week.title,
-                theme: week.theme
+                theme: week.theme,
+                unlocked: week.unlocked,
             };
         });
         const response: ApiResponse<typeof weeks> = {
