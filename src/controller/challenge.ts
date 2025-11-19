@@ -6,12 +6,12 @@ import { StatusCodes } from "http-status-codes";
 import { z } from "zod";
 
 const weekRequestSchema = z.object({
-    weekId: z.number().int().positive(),
+    weekId: z.string().transform((val) => parseInt(val)),
 }).strict();
 
 const dayRequestSchema = z.object({
-    weekId: z.number().int().positive(),
-    dayNumber: z.number().int().positive(),
+    weekId: z.string().transform((val) => parseInt(val)),
+    dayNumber: z.string().transform((val) => parseInt(val)),
 }).strict();
 
 export const getAllWeeks = async (_req: Request, res: Response) => {
