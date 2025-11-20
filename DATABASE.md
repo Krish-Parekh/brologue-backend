@@ -40,7 +40,7 @@ Initial Flow
 Daily Week Progress
 1. There would be a post request using which we need to keep updating this table. This table would be insertion heavy.
 
-2. We need to create a trigger here, if the COUNT(day_number) == 7 on insertion, we create a row inside the week_progress and we bcreate new rows with default values and also updated previous value completed_at and created new week with unlock_at.
+2. We need to create a trigger here, if the COUNT(day_number) == 7 on insertion, we create a row inside the week_progress and we by create new rows with default values and also updated previous value completed_at and created new week with unlock_at.
 
 Progress Analytics
 1. We can calculate daily progress on the fly, by processing all the created_at dates and find the largest streak amongst it.
