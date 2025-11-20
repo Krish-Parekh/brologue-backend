@@ -1,6 +1,6 @@
 {
-	"id": "da2dd31f-8dff-4c01-9f55-749456fbca4b",
-	"prevId": "00000000-0000-0000-0000-000000000000",
+	"id": "6c59b4cb-d212-48d8-9aaa-9546ff150a1e",
+	"prevId": "d2707287-ca35-4778-831b-7752b0f34ece",
 	"version": "7",
 	"dialect": "postgresql",
 	"tables": {
@@ -128,6 +128,67 @@
 					"name": "users_email_unique",
 					"nullsNotDistinct": false,
 					"columns": ["email"]
+				}
+			},
+			"policies": {},
+			"checkConstraints": {},
+			"isRLSEnabled": false
+		},
+		"public.week_progress": {
+			"name": "week_progress",
+			"schema": "",
+			"columns": {
+				"user_id": {
+					"name": "user_id",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"week_id": {
+					"name": "week_id",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"started_at": {
+					"name": "started_at",
+					"type": "timestamp",
+					"primaryKey": false,
+					"notNull": false,
+					"default": "now()"
+				},
+				"completed_at": {
+					"name": "completed_at",
+					"type": "timestamp",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"unlocked_at": {
+					"name": "unlocked_at",
+					"type": "timestamp",
+					"primaryKey": false,
+					"notNull": false,
+					"default": "now()"
+				}
+			},
+			"indexes": {},
+			"foreignKeys": {
+				"week_progress_user_id_users_id_fk": {
+					"name": "week_progress_user_id_users_id_fk",
+					"tableFrom": "week_progress",
+					"tableTo": "users",
+					"columnsFrom": ["user_id"],
+					"columnsTo": ["id"],
+					"onDelete": "no action",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {
+				"week_progress_user_id_week_id_unique": {
+					"name": "week_progress_user_id_week_id_unique",
+					"nullsNotDistinct": false,
+					"columns": ["user_id", "week_id"]
 				}
 			},
 			"policies": {},

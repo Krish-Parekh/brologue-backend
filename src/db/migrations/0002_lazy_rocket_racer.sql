@@ -1,0 +1,1 @@
+ALTER TABLE "week_progress" DROP COLUMN "days_completed";
