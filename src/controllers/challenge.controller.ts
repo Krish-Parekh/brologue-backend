@@ -4,6 +4,7 @@ import type { ApiResponse } from "../types/response";
 import type { Week } from "../types/challenge";
 import { StatusCodes, ReasonPhrases } from "http-status-codes";
 import { z } from "zod";
+import { getAuth } from "@clerk/express";
 
 const weekRequestSchema = z
 	.object({
@@ -121,3 +122,39 @@ export const getDay = async (req: Request, res: Response) => {
 		return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(response);
 	}
 };
+
+const dailyProgressParamSchema = z
+	.object({
+		weekId: z.string().transform((val) => parseInt(val)),
+		dayNumber: z.string().transform((val) => parseInt(val)),
+	})
+	.strict();
+
+export const createDailyProgress = async (req: Request, res: Response) => {
+	try {
+		const { success, data } = dailyProgressParamSchema.safeParse(req.params);
+		if (!success) {
+			const response: ApiResponse<null> = {
+				code: StatusCodes.BAD_REQUEST,
+				message: ReasonPhrases.BAD_REQUEST,
+			};
+			return res.status(StatusCodes.BAD_REQUEST).json(response);
+		}
+		const { weekId, dayNumber } = data;
+		const { userId } = getAuth(req);
+		if (!userId) {
+			const response: ApiResponse<null> = {
+				code: StatusCodes.UNAUTHORIZED,
+				message: ReasonPhrases.UNAUTHORIZED,
+			};
+			return res.status(StatusCodes.UNAUTHORIZED).json(response);
+		}
+	}
+	catch (error) {
+		const response: ApiResponse<null> = {
+			code: StatusCodes.INTERNAL_SERVER_ERROR,
+			message: ReasonPhrases.INTERNAL_SERVER_ERROR,
+		};
+		return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(response);
+	}
+}

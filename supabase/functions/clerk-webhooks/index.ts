@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { createClient } from 'npm:@supabase/supabase-js'
 import { verifyWebhook } from 'npm:@clerk/backend/webhooks'
 
