@@ -93,20 +93,21 @@ export const getDay = async (req: Request, res: Response) => {
             };
             return res.status(StatusCodes.NOT_FOUND).json(response);
         }
-        const focusArea = week.focusAreas.find((focusArea) => focusArea.dailyChallenges.find((challenge) => challenge.day === dayNumber))?.dailyChallenges.find((challenge) => challenge.day === dayNumber);
-        
-        if (!focusArea) {
-            const response: ApiResponse<null> = {
-                code: StatusCodes.NOT_FOUND,
-                message: "Challenge not found",
-            };
-            return res.status(StatusCodes.NOT_FOUND).json(response);
-        }
-        const response: ApiResponse<typeof focusArea> = {
+        const prompts = week.prompts.find((prompt) => prompt.day === dayNumber);
+        const mantras = week.mantras.find((mantra) => mantra.day === dayNumber);
+        const payload = {
+            day: dayNumber,
+            title: week.title,
+            description: week.description,
+            prompts,
+            mantras,
+        };
+        const response: ApiResponse<typeof payload> = {
             code: StatusCodes.OK,
             message: "Day fetched successfully",
-            data: focusArea,
+            data: payload,
         };
+        
         return res.status(StatusCodes.OK).json(response);
     } catch (error) {
         const response: ApiResponse<null> = {
