@@ -9,7 +9,7 @@ import { db } from "../db";
 import { dailyWeekProgress } from "../db/schema/daily_week_progress";
 import { statistics } from "../db/schema/statistics";
 import { weekProgress } from "../db/schema/week_progress";
-import { eq, and } from "drizzle-orm";
+import { eq, and, max } from "drizzle-orm";
 import { getTodayString } from "../utils/helper";
 
 const weekRequestSchema = z
@@ -99,7 +99,6 @@ export const getAllWeeks = async (req: Request, res: Response) => {
 };
 
 export const getWeek = async (req: Request, res: Response) => {
-	try {
 		const { success, data } = weekRequestSchema.safeParse(req.params);
 		if (!success) {
 			const response: ApiResponse<null> = {
@@ -117,21 +116,44 @@ export const getWeek = async (req: Request, res: Response) => {
 			};
 			return res.status(StatusCodes.NOT_FOUND).json(response);
 		}
-
-		const response: ApiResponse<Week> = {
+		const { userId } = getAuth(req);
+		if (!userId) {
+			const response: ApiResponse<null> = {
+				code: StatusCodes.UNAUTHORIZED,
+				message: ReasonPhrases.UNAUTHORIZED,
+			};
+			return res.status(StatusCodes.UNAUTHORIZED).json(response);
+		}
+		// 1. Get the user id from the request
+		// 2. Get the user daily_week_progress, add isCompleted field to the week object and set it to true if the day is completed else false
+		const userDailyProgress = await db.select({value: max(dailyWeekProgress.dayNumber)}).from(dailyWeekProgress).where(and(
+			eq(dailyWeekProgress.userId, userId),
+			eq(dailyWeekProgress.weekId, weekId),
+		));
+		const weeks = challengeWeeks.map((week) => {
+			const maxDayNumber = userDailyProgress[0]?.value || 0;
+			return {
+				...week,
+				focusAreas: week.focusAreas.map((focusArea, index) => {
+					return {
+						...focusArea,
+						dailyChallenges: focusArea.dailyChallenges.map((challenge) => {
+							return {
+								...challenge,
+								isCompleted: challenge.day <= maxDayNumber,
+							}
+						})
+					}
+				})
+			}
+		});
+		const response: ApiResponse<typeof weeks> = {
 			code: StatusCodes.OK,
 			message: "Week fetched successfully",
-			data: week,
+			data: weeks[0],
 		};
 		return res.status(StatusCodes.OK).json(response);
-	} catch (error) {
-		const response: ApiResponse<null> = {
-			code: StatusCodes.INTERNAL_SERVER_ERROR,
-			message: "Failed to get week",
-		};
-		return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(response);
 	}
-};
 
 export const getDay = async (req: Request, res: Response) => {
 	try {
