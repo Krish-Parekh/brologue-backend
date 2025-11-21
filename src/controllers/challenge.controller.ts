@@ -8,7 +8,8 @@ import { getAuth } from "@clerk/express";
 import { db } from "../db";
 import { dailyWeekProgress } from "../db/schema/daily_week_progress";
 import { statistics } from "../db/schema/statistics";
-import { eq } from "drizzle-orm";
+import { weekProgress } from "../db/schema/week_progress";
+import { eq, and } from "drizzle-orm";
 import { getTodayString } from "../utils/helper";
 
 const weekRequestSchema = z
@@ -24,20 +25,70 @@ const dayRequestSchema = z
 	})
 	.strict();
 
-export const getAllWeeks = async (_req: Request, res: Response) => {
+
+
+
+export const getAllWeeks = async (req: Request, res: Response) => {
 	try {
+		const { userId } = getAuth(req);
+		if (!userId) {
+			const response: ApiResponse<null> = {
+				code: StatusCodes.UNAUTHORIZED,
+				message: ReasonPhrases.UNAUTHORIZED,
+			};
+			return res.status(StatusCodes.UNAUTHORIZED).json(response);
+		}
+
+		const [userStats] = await db
+			.select()
+			.from(statistics)
+			.where(eq(statistics.userId, userId));
+
+		const userWeeks = await db
+			.select()
+			.from(weekProgress)
+			.where(eq(weekProgress.userId, userId));
+
+		const currentWeekObj = userWeeks.sort((a, b) => b.weekId - a.weekId)[0];
+		const currentWeekId = currentWeekObj ? currentWeekObj.weekId : 1;
+
+		const currentWeekProgress = await db
+			.select()
+			.from(dailyWeekProgress)
+			.where(
+				and(
+					eq(dailyWeekProgress.userId, userId),
+					eq(dailyWeekProgress.weekId, currentWeekId),
+				),
+			);
+
+		const weekProgressCount = currentWeekProgress.length;
+		const totalWeeksCompleted = userWeeks.filter((w) => w.completedAt).length;
+		const dayStreak = userStats ? userStats.currentStreak : 0;
+
 		const weeks = challengeWeeks.map((week) => {
+			const isUnlocked =
+				userWeeks.some((uw) => uw.weekId === week.id) || week.id === 1;
 			return {
 				id: week.id,
 				title: week.title,
 				theme: week.theme,
-				unlocked: week.unlocked,
+				unlocked: isUnlocked,
 			};
 		});
-		const response: ApiResponse<typeof weeks> = {
+
+		const responseData = {
+			currentWeek: currentWeekId,
+			dayStreak,
+			totalWeeksCompleted,
+			weekProgress: weekProgressCount,
+			weeks,
+		};
+
+		const response: ApiResponse<typeof responseData> = {
 			code: StatusCodes.OK,
 			message: "Challenges fetched successfully",
-			data: weeks,
+			data: responseData,
 		};
 		return res.status(StatusCodes.OK).json(response);
 	} catch (error) {
