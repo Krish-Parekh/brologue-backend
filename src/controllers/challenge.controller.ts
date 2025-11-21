@@ -70,9 +70,7 @@ export const getAllWeeks = async (req: Request, res: Response) => {
 			const isUnlocked =
 				userWeeks.some((uw) => uw.weekId === week.id) || week.id === 1;
 			return {
-				id: week.id,
-				title: week.title,
-				theme: week.theme,
+				...week,
 				unlocked: isUnlocked,
 			};
 		});
