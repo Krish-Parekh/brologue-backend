@@ -1,23 +1,43 @@
-import type { Request, Response } from "express";
+import type { Response } from "express";
 import { challengeWeeks } from "../data/challenge";
 import type { ApiResponse } from "../types/response";
-import type { Week } from "../types/challenge";
+import type {
+	GetWeekRequestParams,
+	GetDayRequestParams,
+	CreateDailyProgressRequestParams,
+	CreateDailyProgressRequestBody,
+} from "../types/challenge-requests";
+import type {
+	GetAllWeeksResponseData,
+	GetWeekResponseData,
+	GetDayResponseData,
+	CreateDailyProgressResponseData,
+} from "../types/challenge-responses";
+import type { AuthenticatedRequest } from "../middleware/auth.middleware";
 import { StatusCodes, ReasonPhrases } from "http-status-codes";
 import { z } from "zod";
-import { getAuth } from "@clerk/express";
 import { db } from "../db";
 import { dailyWeekProgress } from "../db/schema/daily_week_progress";
 import { statistics } from "../db/schema/statistics";
 import { weekProgress } from "../db/schema/week_progress";
 import { eq, and, max } from "drizzle-orm";
 import { getTodayString } from "../utils/helper";
+import Logger from "../utils/logger";
 
+/**
+ * Zod schema for validating week request parameters
+ * Transforms string weekId from URL params to number
+ */
 const weekRequestSchema = z
 	.object({
 		weekId: z.string().transform((val) => parseInt(val)),
 	})
 	.strict();
 
+/**
+ * Zod schema for validating day request parameters
+ * Transforms string weekId and dayNumber from URL params to numbers
+ */
 const dayRequestSchema = z
 	.object({
 		weekId: z.string().transform((val) => parseInt(val)),
@@ -25,33 +45,58 @@ const dayRequestSchema = z
 	})
 	.strict();
 
+/**
+ * Get all challenge weeks with user progress information
+ * 
+ * Logic:
+ * 1. Retrieves user statistics (userId available from auth middleware)
+ * 2. Fetches all weeks the user has started
+ * 3. Determines current week (highest weekId from user's progress, default to 1)
+ * 4. Counts daily progress entries for current week
+ * 5. Calculates total completed weeks and current day streak
+ * 6. Maps all challenge weeks and marks them as unlocked if user has started them or if it's week 1
+ * 
+ * @returns All weeks with unlocked status, current week info, progress counts, and streak
+ */
+export const getAllWeeks = async (
+	req: AuthenticatedRequest,
+	res: Response<ApiResponse<GetAllWeeksResponseData | null>>,
+) => {
+	const { userId } = req;
+	Logger.debug(`[getAllWeeks] Request started for userId: ${userId}`);
 
-
-
-export const getAllWeeks = async (req: Request, res: Response) => {
 	try {
-		const { userId } = getAuth(req);
-		if (!userId) {
-			const response: ApiResponse<null> = {
-				code: StatusCodes.UNAUTHORIZED,
-				message: ReasonPhrases.UNAUTHORIZED,
-			};
-			return res.status(StatusCodes.UNAUTHORIZED).json(response);
-		}
-
+		// Fetch user statistics (for streak information)
+		Logger.debug(`[getAllWeeks] Fetching user statistics for userId: ${userId}`);
 		const [userStats] = await db
 			.select()
 			.from(statistics)
 			.where(eq(statistics.userId, userId));
+		Logger.debug(
+			`[getAllWeeks] User statistics retrieved: ${userStats ? `streak=${userStats.currentStreak}, longest=${userStats.longestStreak}` : "no stats found"}`,
+		);
 
+		// Fetch all weeks the user has started
+		Logger.debug(`[getAllWeeks] Fetching user week progress for userId: ${userId}`);
 		const userWeeks = await db
 			.select()
 			.from(weekProgress)
 			.where(eq(weekProgress.userId, userId));
+		Logger.debug(
+			`[getAllWeeks] User weeks retrieved: ${userWeeks.length} weeks found`,
+		);
 
+		// Determine current week: highest weekId from user's progress, or default to week 1
 		const currentWeekObj = userWeeks.sort((a, b) => b.weekId - a.weekId)[0];
 		const currentWeekId = currentWeekObj ? currentWeekObj.weekId : 1;
+		Logger.info(
+			`[getAllWeeks] Current week determined: ${currentWeekId} ${currentWeekObj ? "(from user progress)" : "(default)"}`,
+		);
 
+		// Count daily progress entries for the current week
+		Logger.debug(
+			`[getAllWeeks] Fetching daily progress for userId: ${userId}, weekId: ${currentWeekId}`,
+		);
 		const currentWeekProgress = await db
 			.select()
 			.from(dailyWeekProgress)
@@ -62,10 +107,16 @@ export const getAllWeeks = async (req: Request, res: Response) => {
 				),
 			);
 
+		// Calculate progress metrics
 		const weekProgressCount = currentWeekProgress.length;
 		const totalWeeksCompleted = userWeeks.filter((w) => w.completedAt).length;
 		const dayStreak = userStats ? userStats.currentStreak : 0;
+		Logger.info(
+			`[getAllWeeks] Progress metrics calculated: weekProgress=${weekProgressCount}, totalWeeksCompleted=${totalWeeksCompleted}, dayStreak=${dayStreak}`,
+		);
 
+		// Map all challenge weeks and determine unlock status
+		// A week is unlocked if user has started it OR if it's week 1 (always unlocked)
 		const weeks = challengeWeeks.map((week) => {
 			const isUnlocked =
 				userWeeks.some((uw) => uw.weekId === week.id) || week.id === 1;
@@ -75,7 +126,12 @@ export const getAllWeeks = async (req: Request, res: Response) => {
 			};
 		});
 
-		const responseData = {
+		const unlockedCount = weeks.filter((w) => w.unlocked).length;
+		Logger.debug(
+			`[getAllWeeks] Weeks processed: ${weeks.length} total, ${unlockedCount} unlocked`,
+		);
+
+		const responseData: GetAllWeeksResponseData = {
 			currentWeek: currentWeekId,
 			dayStreak,
 			totalWeeksCompleted,
@@ -83,13 +139,21 @@ export const getAllWeeks = async (req: Request, res: Response) => {
 			weeks,
 		};
 
-		const response: ApiResponse<typeof responseData> = {
+		const response: ApiResponse<GetAllWeeksResponseData> = {
 			code: StatusCodes.OK,
 			message: "Challenges fetched successfully",
 			data: responseData,
 		};
+
+		Logger.info(
+			`[getAllWeeks] Request completed successfully for userId: ${userId}`,
+		);
 		return res.status(StatusCodes.OK).json(response);
 	} catch (error) {
+		Logger.error(
+			`[getAllWeeks] Error occurred for userId: ${userId}`,
+			error instanceof Error ? error : new Error(String(error)),
+		);
 		const response: ApiResponse<null> = {
 			code: StatusCodes.INTERNAL_SERVER_ERROR,
 			message: ReasonPhrases.INTERNAL_SERVER_ERROR,
@@ -98,99 +162,213 @@ export const getAllWeeks = async (req: Request, res: Response) => {
 	}
 };
 
-export const getWeek = async (req: Request, res: Response) => {
+/**
+ * Get a specific challenge week with completion status for each daily challenge
+ * 
+ * Logic:
+ * 1. Validates weekId parameter
+ * 2. Finds the requested week from challenge data
+ * 3. Gets the maximum day number completed by user for this week (userId available from auth middleware)
+ * 4. Marks daily challenges as completed if their day <= maxDayNumber
+ * 5. Returns the requested week with completion status
+ * 
+ * @returns Week data with completion status for each daily challenge
+ */
+export const getWeek = async (
+	req: AuthenticatedRequest,
+	res: Response<ApiResponse<GetWeekResponseData | null>>,
+) => {
+	const { userId } = req;
+	Logger.debug(
+		`[getWeek] Request started for userId: ${userId}, params: ${JSON.stringify(req.params)}`,
+	);
+
+	try {
+		// Validate and parse weekId from URL parameters
 		const { success, data } = weekRequestSchema.safeParse(req.params);
 		if (!success) {
+			Logger.warn(
+				`[getWeek] Validation failed for userId: ${userId}, params: ${JSON.stringify(req.params)}`,
+			);
 			const response: ApiResponse<null> = {
 				code: StatusCodes.BAD_REQUEST,
 				message: ReasonPhrases.BAD_REQUEST,
 			};
 			return res.status(StatusCodes.BAD_REQUEST).json(response);
 		}
-		const { weekId } = data;
+
+		const { weekId }: GetWeekRequestParams = data;
+		Logger.debug(`[getWeek] Parsed weekId: ${weekId}`);
+
+		// Find the requested week
 		const week = challengeWeeks.find((week) => week.id === weekId);
 		if (!week) {
+			Logger.warn(`[getWeek] Week not found: weekId=${weekId}, userId=${userId}`);
 			const response: ApiResponse<null> = {
 				code: StatusCodes.NOT_FOUND,
 				message: "Week not found",
 			};
 			return res.status(StatusCodes.NOT_FOUND).json(response);
 		}
-		const { userId } = getAuth(req);
-		if (!userId) {
-			const response: ApiResponse<null> = {
-				code: StatusCodes.UNAUTHORIZED,
-				message: ReasonPhrases.UNAUTHORIZED,
-			};
-			return res.status(StatusCodes.UNAUTHORIZED).json(response);
-		}
-		// 1. Get the user id from the request
-		// 2. Get the user daily_week_progress, add isCompleted field to the week object and set it to true if the day is completed else false
-		const userDailyProgress = await db.select({value: max(dailyWeekProgress.dayNumber)}).from(dailyWeekProgress).where(and(
-			eq(dailyWeekProgress.userId, userId),
-			eq(dailyWeekProgress.weekId, weekId),
-		));
-		const weeks = challengeWeeks.map((week) => {
-			const maxDayNumber = userDailyProgress[0]?.value || 0;
-			return {
-				...week,
-				focusAreas: week.focusAreas.map((focusArea, index) => {
-					return {
-						...focusArea,
-						dailyChallenges: focusArea.dailyChallenges.map((challenge) => {
-							return {
-								...challenge,
-								isCompleted: challenge.day <= maxDayNumber,
-							}
-						})
-					}
-				})
-			}
-		});
-		const response: ApiResponse<typeof weeks> = {
+
+		Logger.debug(`[getWeek] Week found: ${week.title} (weekId: ${weekId})`);
+
+		// Get the highest day number completed by user for this week
+		// This determines which challenges are marked as completed
+		Logger.debug(
+			`[getWeek] Fetching daily progress for userId: ${userId}, weekId: ${weekId}`,
+		);
+		const userDailyProgress = await db
+			.select({ value: max(dailyWeekProgress.dayNumber) })
+			.from(dailyWeekProgress)
+			.where(
+				and(
+					eq(dailyWeekProgress.userId, userId),
+					eq(dailyWeekProgress.weekId, weekId),
+				),
+			);
+
+		const maxDayNumber = userDailyProgress[0]?.value || 0;
+		Logger.info(
+			`[getWeek] Max day number completed: ${maxDayNumber} for userId: ${userId}, weekId: ${weekId}`,
+		);
+
+		// Add completion status to daily challenges for the requested week
+		// A challenge is completed if its day number <= maxDayNumber completed by user
+		const responseData: GetWeekResponseData = {
+			...week,
+			focusAreas: week.focusAreas.map((focusArea) => {
+				return {
+					...focusArea,
+					dailyChallenges: focusArea.dailyChallenges.map((challenge) => {
+						return {
+							...challenge,
+							isCompleted: challenge.day <= maxDayNumber,
+						};
+					}),
+				};
+			}),
+		};
+
+		const totalChallenges = responseData.focusAreas.reduce(
+			(sum, area) => sum + area.dailyChallenges.length,
+			0,
+		);
+		const completedChallenges = responseData.focusAreas.reduce(
+			(sum, area) =>
+				sum + area.dailyChallenges.filter((c) => c.isCompleted).length,
+			0,
+		);
+		Logger.debug(
+			`[getWeek] Completion status calculated: ${completedChallenges}/${totalChallenges} challenges completed`,
+		);
+
+		const response: ApiResponse<GetWeekResponseData> = {
 			code: StatusCodes.OK,
 			message: "Week fetched successfully",
-			data: weeks[0],
+			data: responseData,
 		};
-		return res.status(StatusCodes.OK).json(response);
-	}
 
-export const getDay = async (req: Request, res: Response) => {
+		Logger.info(
+			`[getWeek] Request completed successfully for userId: ${userId}, weekId: ${weekId}`,
+		);
+		return res.status(StatusCodes.OK).json(response);
+	} catch (error) {
+		Logger.error(
+			`[getWeek] Error occurred for userId: ${userId}, weekId: ${req.params.weekId}`,
+			error instanceof Error ? error : new Error(String(error)),
+		);
+		const response: ApiResponse<null> = {
+			code: StatusCodes.INTERNAL_SERVER_ERROR,
+			message: ReasonPhrases.INTERNAL_SERVER_ERROR,
+		};
+		return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(response);
+	}
+};
+
+/**
+ * Get a specific day's prompts and mantras for a given week
+ * 
+ * Logic:
+ * 1. Validates weekId and dayNumber parameters
+ * 2. Finds the requested week from challenge data
+ * 3. Extracts prompts and mantras for the specific day
+ * 4. Returns day information with associated prompts and mantras
+ * 
+ * @returns Day data including prompts and mantras for the specified day
+ */
+export const getDay = async (
+	req: AuthenticatedRequest,
+	res: Response<ApiResponse<GetDayResponseData | null>>,
+) => {
+	const { userId } = req;
+	Logger.debug(
+		`[getDay] Request started for userId: ${userId}, params: ${JSON.stringify(req.params)}`,
+	);
+
 	try {
+		// Validate and parse weekId and dayNumber from URL parameters
 		const { success, data } = dayRequestSchema.safeParse(req.params);
 		if (!success) {
+			Logger.warn(
+				`[getDay] Validation failed for userId: ${userId}, params: ${JSON.stringify(req.params)}`,
+			);
 			const response: ApiResponse<null> = {
 				code: StatusCodes.BAD_REQUEST,
 				message: ReasonPhrases.BAD_REQUEST,
 			};
 			return res.status(StatusCodes.BAD_REQUEST).json(response);
 		}
-		const { weekId, dayNumber } = data;
+
+		const { weekId, dayNumber }: GetDayRequestParams = data;
+		Logger.debug(`[getDay] Parsed weekId: ${weekId}, dayNumber: ${dayNumber}`);
+
+		// Find the requested week
 		const week = challengeWeeks.find((week) => week.id === weekId);
 		if (!week) {
+			Logger.warn(
+				`[getDay] Week not found: weekId=${weekId}, dayNumber=${dayNumber}, userId=${userId}`,
+			);
 			const response: ApiResponse<null> = {
 				code: StatusCodes.NOT_FOUND,
 				message: "Week not found",
 			};
 			return res.status(StatusCodes.NOT_FOUND).json(response);
 		}
+
+		Logger.debug(`[getDay] Week found: ${week.title} (weekId: ${weekId})`);
+
+		// Extract prompts and mantras for the specific day
 		const prompts = week.prompts.find((prompt) => prompt.day === dayNumber);
 		const mantras = week.mantras.find((mantra) => mantra.day === dayNumber);
-		const payload = {
+
+		Logger.debug(
+			`[getDay] Day content retrieved: prompts=${prompts ? "found" : "not found"}, mantras=${mantras ? "found" : "not found"}`,
+		);
+
+		const responseData: GetDayResponseData = {
 			day: dayNumber,
 			title: week.title,
 			description: week.description,
 			prompts,
 			mantras,
 		};
-		const response: ApiResponse<typeof payload> = {
+
+		const response: ApiResponse<GetDayResponseData> = {
 			code: StatusCodes.OK,
 			message: "Day fetched successfully",
-			data: payload,
+			data: responseData,
 		};
 
+		Logger.info(
+			`[getDay] Request completed successfully for userId: ${userId}, weekId: ${weekId}, dayNumber: ${dayNumber}`,
+		);
 		return res.status(StatusCodes.OK).json(response);
 	} catch (error) {
+		Logger.error(
+			`[getDay] Error occurred for userId: ${userId}, weekId: ${req.params.weekId}, dayNumber: ${req.params.dayNumber}`,
+			error instanceof Error ? error : new Error(String(error)),
+		);
 		const response: ApiResponse<null> = {
 			code: StatusCodes.INTERNAL_SERVER_ERROR,
 			message: ReasonPhrases.INTERNAL_SERVER_ERROR,
@@ -199,6 +377,10 @@ export const getDay = async (req: Request, res: Response) => {
 	}
 };
 
+/**
+ * Zod schema for validating daily progress request parameters
+ * Transforms string weekId and dayNumber from URL params to numbers
+ */
 const dailyProgressParamSchema = z
 	.object({
 		weekId: z.string().transform((val) => parseInt(val)),
@@ -206,63 +388,85 @@ const dailyProgressParamSchema = z
 	})
 	.strict();
 
+/**
+ * Zod schema for validating daily progress request body
+ * Validates optional notes field
+ */
 const dailyProgressBodySchema = z
 	.object({
 		notes: z.string().optional(),
 	})
 	.strict();
 
-export const createDailyProgress = async (req: Request, res: Response) => {
-	try {
-		console.log("Params", req.params);
-		const {
-			success,
-			data,
-			error: paramError,
-		} = dailyProgressParamSchema.safeParse(req.params);
-		console.log("Param Error", paramError);
+/**
+ * Create or update daily progress for a specific week and day
+ * 
+ * Logic:
+ * 1. Validates request parameters (weekId, dayNumber) and body (notes)
+ * 2. Uses database transaction to ensure atomicity (userId available from auth middleware):
+ *    a. Saves/updates daily progress entry (handles duplicate entries gracefully)
+ *    b. Calculates and updates user streak statistics:
+ *       - If user already logged today: skip stats update (prevent double-counting)
+ *       - If user logged yesterday: increment current streak, update longest if needed
+ *       - If user missed a day: reset current streak to 1, keep longest streak unchanged
+ *    c. Creates new stats record if user doesn't have one yet
+ * 
+ * Streak Calculation Logic:
+ * - SCENARIO A: User already logged today → Don't update stats (prevent duplicate streak increment)
+ * - SCENARIO B: User logged yesterday → Continue streak (increment current, update longest if needed)
+ * - SCENARIO C: User missed a day → Reset current streak to 1, preserve longest streak
+ * 
+ * @returns Success message confirming progress was saved
+ */
+export const createDailyProgress = async (
+	req: AuthenticatedRequest,
+	res: Response<ApiResponse<CreateDailyProgressResponseData | null>>,
+) => {
+	const { userId } = req;
+	Logger.debug(
+		`[createDailyProgress] Request started for userId: ${userId}, params: ${JSON.stringify(req.params)}, body: ${JSON.stringify(req.body)}`,
+	);
 
-		console.log("Body", req.body);
+	try {
+		// Validate and parse request parameters (weekId, dayNumber from URL)
+		const { success, data } = dailyProgressParamSchema.safeParse(req.params);
+
+		// Validate and parse request body (notes)
 		const {
 			success: bodySuccess,
 			data: bodyData,
-			error: bodyError,
 		} = dailyProgressBodySchema.safeParse(req.body);
-		console.log("Body Error", bodyError);
+
 		if (!success || !bodySuccess) {
-			console.log("Error", paramError, bodyError);
+			Logger.warn(
+				`[createDailyProgress] Validation failed for userId: ${userId}, params: ${JSON.stringify(req.params)}, body: ${JSON.stringify(req.body)}`,
+			);
 			const response: ApiResponse<null> = {
 				code: StatusCodes.BAD_REQUEST,
 				message: ReasonPhrases.BAD_REQUEST,
 			};
 			return res.status(StatusCodes.BAD_REQUEST).json(response);
 		}
-		const { weekId, dayNumber } = data;
-		const { notes } = bodyData;
-		const { userId } = getAuth(req);
-		console.log("UserId", userId);
-		if (!userId) {
-			const response: ApiResponse<null> = {
-				code: StatusCodes.UNAUTHORIZED,
-				message: ReasonPhrases.UNAUTHORIZED,
-			};
-			return res.status(StatusCodes.UNAUTHORIZED).json(response);
-		}
-		console.log("Starting daily progress creation transaction");
 
-		// 1. THE SAFEGUARD (Transaction)
-		// Think of this like a "Sandbox". If anything inside fails,
-		// the database undoes everything. It prevents "half-saved" data.
+		const { weekId, dayNumber }: CreateDailyProgressRequestParams = data;
+		const { notes }: CreateDailyProgressRequestBody = bodyData;
+		Logger.info(
+			`[createDailyProgress] Starting transaction for userId: ${userId}, weekId: ${weekId}, dayNumber: ${dayNumber}, hasNotes: ${!!notes}`,
+		);
+
+		// Use database transaction to ensure atomicity
+		// If any operation fails, all changes are rolled back
 		await db.transaction(async (tx) => {
-			console.log("Inside transaction - starting database operations");
+			Logger.debug(
+				`[createDailyProgress] Transaction started for userId: ${userId}, weekId: ${weekId}, dayNumber: ${dayNumber}`,
+			);
 
-			// --- STEP 2: Save the User's Log ---
-			console.log("Inserting daily progress with values:", {
-				userId,
-				weekId,
-				dayNumber,
-				notes,
-			});
+			// STEP 1: Save or update the daily progress entry
+			// Uses onConflictDoUpdate to handle duplicate entries gracefully
+			// If user already logged this day, only update the notes (prevents errors on double-save)
+			Logger.debug(
+				`[createDailyProgress] STEP 1: Saving daily progress entry for userId: ${userId}, weekId: ${weekId}, dayNumber: ${dayNumber}`,
+			);
 			await tx
 				.insert(dailyWeekProgress)
 				.values({
@@ -271,8 +475,6 @@ export const createDailyProgress = async (req: Request, res: Response) => {
 					dayNumber,
 					notes,
 				})
-				// If they already logged this day, just update the notes.
-				// We don't want to crash if they click "Save" twice.
 				.onConflictDoUpdate({
 					target: [
 						dailyWeekProgress.userId,
@@ -281,12 +483,14 @@ export const createDailyProgress = async (req: Request, res: Response) => {
 					],
 					set: { notes, updatedAt: new Date() },
 				});
+			Logger.info(
+				`[createDailyProgress] STEP 1: Daily progress saved/updated for userId: ${userId}, weekId: ${weekId}, dayNumber: ${dayNumber}`,
+			);
 
-			console.log("Daily Week Progress Saved successfully");
-
-			// --- STEP 3: Get Current Stats ---
-			// We need to see their history to calculate the new streak.
-			console.log("Fetching user statistics for userId:", userId);
+			// STEP 2: Fetch user statistics to calculate streak
+			Logger.debug(
+				`[createDailyProgress] STEP 2: Fetching user statistics for userId: ${userId}`,
+			);
 			const userStats = await tx
 				.select()
 				.from(statistics)
@@ -294,28 +498,19 @@ export const createDailyProgress = async (req: Request, res: Response) => {
 
 			const stat = userStats[0];
 			const todayString = getTodayString(); // e.g., "2023-11-21"
+			Logger.debug(
+				`[createDailyProgress] STEP 2: User stats retrieved: ${stat ? `currentStreak=${stat.currentStreak}, longestStreak=${stat.longestStreak}, lastLogDate=${stat.lastLogDate}` : "no stats found"}, todayString: ${todayString}`,
+			);
 
-			console.log("User Stats retrieved:", userStats);
-			console.log("Today string:", todayString);
-			console.log("Current stat object:", stat);
-
-			// Default values for a brand new user
+			// Initialize default values for new users
 			let newCurrentStreak = 1;
 			let newLongestStreak = 1;
 			let shouldUpdateStats = true;
+			let scenario = "NEW_USER";
 
-			console.log(
-				"Initial streak values - newCurrentStreak:",
-				newCurrentStreak,
-				"newLongestStreak:",
-				newLongestStreak,
-			);
-
-			// --- STEP 4: The Streak Logic (Simplified) ---
+			// STEP 3: Calculate streak based on last log date
 			if (stat) {
-				console.log("User has existing stats, processing streak logic");
-				// We store dates as simple strings or Date objects in DB.
-				// Let's turn the DB date into a string "YYYY-MM-DD" to compare easily.
+				// Convert last log date to string format for comparison
 				const lastLogDate = stat.lastLogDate
 					? new Date(stat.lastLogDate)
 					: null;
@@ -323,66 +518,63 @@ export const createDailyProgress = async (req: Request, res: Response) => {
 					? lastLogDate.toISOString().split("T")[0]
 					: null;
 
-				console.log("Last log date from DB:", stat.lastLogDate);
-				console.log("Last log date as Date object:", lastLogDate);
-				console.log("Last log string:", lastLogString);
+				Logger.debug(
+					`[createDailyProgress] STEP 3: Streak calculation - lastLogString: ${lastLogString}, todayString: ${todayString}`,
+				);
 
-				// SCENARIO A: They already logged today.
+				// SCENARIO A: User already logged today
+				// Don't increment streak again (prevents double-counting)
 				if (lastLogString === todayString) {
-					console.log(
-						"SCENARIO A: User already logged today, not updating stats",
+					scenario = "A_ALREADY_LOGGED_TODAY";
+					shouldUpdateStats = false;
+					Logger.info(
+						`[createDailyProgress] STEP 3: SCENARIO A - User already logged today, skipping stats update`,
 					);
-					shouldUpdateStats = false; // Don't increase streak twice in one day!
 				}
-				// SCENARIO B: They logged Yesterday. (Streak continues!)
+				// SCENARIO B or C: User logged yesterday or missed a day
 				else {
-					console.log(
-						"SCENARIO B/C: Checking if logged yesterday or streak should reset",
-					);
-					// Check if the last log was exactly 1 day ago.
-					// We calculate this by getting Yesterday's date string.
+					// Calculate yesterday's date string
 					const yesterday = new Date();
 					yesterday.setDate(yesterday.getDate() - 1);
 					const yesterdayString = yesterday.toISOString().split("T")[0];
 
-					console.log("Yesterday string:", yesterdayString);
+					Logger.debug(
+						`[createDailyProgress] STEP 3: Comparing with yesterday: ${yesterdayString}`,
+					);
 
+					// SCENARIO B: User logged yesterday - continue streak
 					if (lastLogString === yesterdayString) {
-						console.log("SCENARIO B: User logged yesterday, continuing streak");
+						scenario = "B_CONTINUE_STREAK";
 						newCurrentStreak = stat.currentStreak + 1;
 						newLongestStreak = Math.max(newCurrentStreak, stat.longestStreak);
-						console.log(
-							"Updated streak values - newCurrentStreak:",
-							newCurrentStreak,
-							"newLongestStreak:",
-							newLongestStreak,
+						Logger.info(
+							`[createDailyProgress] STEP 3: SCENARIO B - Continuing streak: ${stat.currentStreak} → ${newCurrentStreak}, longest: ${stat.longestStreak} → ${newLongestStreak}`,
 						);
 					}
-					// SCENARIO C: They missed a day. (Streak resets)
+					// SCENARIO C: User missed a day - reset current streak
 					else {
-						console.log(
-							"SCENARIO C: User missed a day, resetting current streak",
-						);
+						scenario = "C_RESET_STREAK";
 						newCurrentStreak = 1;
-						// Longest streak stays the same, it doesn't reset.
+						// Longest streak remains unchanged (preserves user's best streak)
 						newLongestStreak = stat.longestStreak;
-						console.log(
-							"Reset streak values - newCurrentStreak:",
-							newCurrentStreak,
-							"newLongestStreak:",
-							newLongestStreak,
+						Logger.info(
+							`[createDailyProgress] STEP 3: SCENARIO C - Reset streak: ${stat.currentStreak} → ${newCurrentStreak}, longest preserved: ${newLongestStreak}`,
 						);
 					}
 				}
 			} else {
-				console.log("User has no existing stats, will create new record");
+				Logger.info(
+					`[createDailyProgress] STEP 3: New user - initializing streaks to 1`,
+				);
 			}
 
-			console.log("Final shouldUpdateStats:", shouldUpdateStats);
-
+			// STEP 4: Update or create statistics record
 			if (shouldUpdateStats) {
 				if (stat) {
-					console.log("Updating existing statistics record");
+					// Update existing statistics
+					Logger.debug(
+						`[createDailyProgress] STEP 4: Updating statistics for userId: ${userId}, currentStreak: ${newCurrentStreak}, longestStreak: ${newLongestStreak}`,
+					);
 					await tx
 						.update(statistics)
 						.set({
@@ -391,28 +583,54 @@ export const createDailyProgress = async (req: Request, res: Response) => {
 							lastLogDate: new Date(),
 						})
 						.where(eq(statistics.userId, userId));
-					console.log("Statistics updated successfully");
+					Logger.info(
+						`[createDailyProgress] STEP 4: Statistics updated successfully for userId: ${userId}`,
+					);
 				} else {
-					console.log("Creating new statistics record");
+					// Create new statistics record for first-time user
+					Logger.debug(
+						`[createDailyProgress] STEP 4: Creating new statistics record for userId: ${userId}`,
+					);
 					await tx.insert(statistics).values({
 						userId,
 						currentStreak: 1,
 						longestStreak: 1,
 						lastLogDate: new Date(),
 					});
-					console.log("New statistics record created successfully");
+					Logger.info(
+						`[createDailyProgress] STEP 4: New statistics record created for userId: ${userId}`,
+					);
 				}
 			} else {
-				console.log("Skipping statistics update");
+				Logger.info(
+					`[createDailyProgress] STEP 4: Skipping statistics update (scenario: ${scenario})`,
+				);
 			}
 
-			console.log("Transaction completed successfully");
+			Logger.info(
+				`[createDailyProgress] Transaction completed successfully for userId: ${userId}, scenario: ${scenario}`,
+			);
 		});
 
-		console.log("Daily progress creation completed, sending response");
-		return res.status(200).json({ message: "Progress saved" });
+		const responseData: CreateDailyProgressResponseData = {
+			message: "Progress saved",
+		};
+
+		const response: ApiResponse<CreateDailyProgressResponseData> = {
+			code: StatusCodes.OK,
+			message: "Progress saved",
+			data: responseData,
+		};
+
+		Logger.info(
+			`[createDailyProgress] Request completed successfully for userId: ${userId}, weekId: ${weekId}, dayNumber: ${dayNumber}`,
+		);
+		return res.status(StatusCodes.OK).json(response);
 	} catch (error) {
-		console.error("Error creating daily progress:", error);
+		Logger.error(
+			`[createDailyProgress] Error occurred for userId: ${userId}, weekId: ${req.params.weekId}, dayNumber: ${req.params.dayNumber}`,
+			error instanceof Error ? error : new Error(String(error)),
+		);
 		const response: ApiResponse<null> = {
 			code: StatusCodes.INTERNAL_SERVER_ERROR,
 			message: ReasonPhrases.INTERNAL_SERVER_ERROR,
