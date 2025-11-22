@@ -57,6 +57,7 @@ export interface GetDayResponseData {
 	description: string;
 	prompts: Week["prompts"][0] | undefined;
 	mantras: Week["mantras"][0] | undefined;
+	notes?: string | null;
 }
 
 /**

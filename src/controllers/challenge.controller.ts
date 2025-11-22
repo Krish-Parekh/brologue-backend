@@ -285,10 +285,11 @@ export const getWeek = async (
  * Logic:
  * 1. Validates weekId and dayNumber parameters
  * 2. Finds the requested week from challenge data
- * 3. Extracts prompts and mantras for the specific day
- * 4. Returns day information with associated prompts and mantras
+ * 3. Fetches user's saved notes for this day (if they exist)
+ * 4. Extracts prompts and mantras for the specific day
+ * 5. Returns day information with associated prompts, mantras, and notes
  * 
- * @returns Day data including prompts and mantras for the specified day
+ * @returns Day data including prompts, mantras, and saved notes for the specified day
  */
 export const getDay = async (
 	req: AuthenticatedRequest,
@@ -331,6 +332,27 @@ export const getDay = async (
 
 		Logger.debug(`[getDay] Week found: ${week.title} (weekId: ${weekId})`);
 
+		// Fetch user's notes for this day if they exist
+		Logger.debug(
+			`[getDay] Fetching daily progress notes for userId: ${userId}, weekId: ${weekId}, dayNumber: ${dayNumber}`,
+		);
+		const userDailyProgress = await db
+			.select({ notes: dailyWeekProgress.notes })
+			.from(dailyWeekProgress)
+			.where(
+				and(
+					eq(dailyWeekProgress.userId, userId),
+					eq(dailyWeekProgress.weekId, weekId),
+					eq(dailyWeekProgress.dayNumber, dayNumber),
+				),
+			)
+			.limit(1);
+
+		const savedNotes = userDailyProgress[0]?.notes || null;
+		Logger.debug(
+			`[getDay] Notes retrieved: ${savedNotes ? `found (${savedNotes.length} chars)` : "not found"}`,
+		);
+
 		// Extract prompts and mantras for the specific day
 		const prompts = week.prompts.find((prompt) => prompt.day === dayNumber);
 		const mantras = week.mantras.find((mantra) => mantra.day === dayNumber);
@@ -345,6 +367,7 @@ export const getDay = async (
 			description: week.description,
 			prompts,
 			mantras,
+			notes: savedNotes,
 		};
 
 		const response: ApiResponse<GetDayResponseData> = {
