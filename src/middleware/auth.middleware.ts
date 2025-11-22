@@ -4,18 +4,14 @@ import { StatusCodes, ReasonPhrases } from "http-status-codes";
 import type { ApiResponse } from "../types/response";
 
 /**
- * Extended Express Request type with authenticated user ID
- */
-export interface AuthenticatedRequest extends Request {
-	userId: string;
-}
-
-/**
  * Authentication middleware
  * 
  * Checks if the user is authenticated using Clerk.
  * If authenticated, attaches userId to the request object.
  * If not authenticated, returns 401 Unauthorized response.
+ * 
+ * The userId property is added to Request via TypeScript declaration merging
+ * (see src/types/globals.d.ts)
  * 
  * Usage:
  * ```typescript
@@ -23,22 +19,23 @@ export interface AuthenticatedRequest extends Request {
  * ```
  */
 export const requireAuth = (
-	req: Request,
-	res: Response<ApiResponse<null>>,
+	request: Request,
+	response: Response,
 	next: NextFunction,
 ) => {
-	const { userId } = getAuth(req);
+	const { userId } = getAuth(request);
 
 	if (!userId) {
-		const response: ApiResponse<null> = {
+		const apiResponse: ApiResponse<null> = {
 			code: StatusCodes.UNAUTHORIZED,
 			message: ReasonPhrases.UNAUTHORIZED,
 		};
-		return res.status(StatusCodes.UNAUTHORIZED).json(response);
+		return response.status(StatusCodes.UNAUTHORIZED).json(apiResponse);
 	}
 
 	// Attach userId to request object for use in controllers
-	(req as AuthenticatedRequest).userId = userId;
+	// TypeScript knows about this property via declaration merging in globals.d.ts
+	request.userId = userId;
 	next();
 };
 

@@ -1,4 +1,4 @@
-import type { Response } from "express";
+import type { Request, Response } from "express";
 import { challengeWeeks } from "../data/challenge";
 import type { ApiResponse } from "../types/response";
 import type {
@@ -6,14 +6,11 @@ import type {
 	GetDayRequestParams,
 	CreateDailyProgressRequestParams,
 	CreateDailyProgressRequestBody,
-} from "../types/challenge-requests";
-import type {
 	GetAllWeeksResponseData,
 	GetWeekResponseData,
 	GetDayResponseData,
 	CreateDailyProgressResponseData,
-} from "../types/challenge-responses";
-import type { AuthenticatedRequest } from "../middleware/auth.middleware";
+} from "../types/challenge.types";
 import { StatusCodes, ReasonPhrases } from "http-status-codes";
 import { z } from "zod";
 import { db } from "../db";
@@ -52,11 +49,8 @@ const dayRequestSchema = z
  * 
  * @returns All weeks with unlocked status, current week info, progress counts, and streak
  */
-export const getAllWeeks = async (
-	req: AuthenticatedRequest,
-	res: Response<ApiResponse<GetAllWeeksResponseData | null>>,
-) => {
-	const { userId } = req;
+export const getAllWeeks = async (request: Request, response: Response) => {
+	const { userId } = request;
 	Logger.debug(`[getAllWeeks] Request started for userId: ${userId}`);
 
 	try {
@@ -133,7 +127,7 @@ export const getAllWeeks = async (
 			weeks,
 		};
 
-		const response: ApiResponse<GetAllWeeksResponseData> = {
+		const apiResponse: ApiResponse<GetAllWeeksResponseData> = {
 			code: StatusCodes.OK,
 			message: "Challenges fetched successfully",
 			data: responseData,
@@ -142,17 +136,17 @@ export const getAllWeeks = async (
 		Logger.info(
 			`[getAllWeeks] Request completed successfully for userId: ${userId}`,
 		);
-		return res.status(StatusCodes.OK).json(response);
+		return response.status(StatusCodes.OK).json(apiResponse);
 	} catch (error) {
 		Logger.error(
 			`[getAllWeeks] Error occurred for userId: ${userId}`,
 			error instanceof Error ? error : new Error(String(error)),
 		);
-		const response: ApiResponse<null> = {
+		const apiResponse: ApiResponse<null> = {
 			code: StatusCodes.INTERNAL_SERVER_ERROR,
 			message: ReasonPhrases.INTERNAL_SERVER_ERROR,
 		};
-		return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(response);
+		return response.status(StatusCodes.INTERNAL_SERVER_ERROR).json(apiResponse);
 	}
 };
 
@@ -168,26 +162,23 @@ export const getAllWeeks = async (
  * 
  * @returns Week data with completion status for each daily challenge
  */
-export const getWeek = async (
-	req: AuthenticatedRequest,
-	res: Response<ApiResponse<GetWeekResponseData | null>>,
-) => {
-	const { userId } = req;
+export const getWeek = async (request: Request, response: Response) => {
+	const { userId } = request;
 	Logger.debug(
-		`[getWeek] Request started for userId: ${userId}, params: ${JSON.stringify(req.params)}`,
+		`[getWeek] Request started for userId: ${userId}, params: ${JSON.stringify(request.params)}`,
 	);
 
 	try {
-		const { success, data } = weekRequestSchema.safeParse(req.params);
+		const { success, data } = weekRequestSchema.safeParse(request.params);
 		if (!success) {
 			Logger.warn(
-				`[getWeek] Validation failed for userId: ${userId}, params: ${JSON.stringify(req.params)}`,
+				`[getWeek] Validation failed for userId: ${userId}, params: ${JSON.stringify(request.params)}`,
 			);
-			const response: ApiResponse<null> = {
+			const apiResponse: ApiResponse<null> = {
 				code: StatusCodes.BAD_REQUEST,
 				message: ReasonPhrases.BAD_REQUEST,
 			};
-			return res.status(StatusCodes.BAD_REQUEST).json(response);
+			return response.status(StatusCodes.BAD_REQUEST).json(apiResponse);
 		}
 
 		const { weekId }: GetWeekRequestParams = data;
@@ -197,11 +188,11 @@ export const getWeek = async (
 		const week = challengeWeeks.find((week) => week.id === weekId);
 		if (!week) {
 			Logger.warn(`[getWeek] Week not found: weekId=${weekId}, userId=${userId}`);
-			const response: ApiResponse<null> = {
+			const apiResponse: ApiResponse<null> = {
 				code: StatusCodes.NOT_FOUND,
 				message: "Week not found",
 			};
-			return res.status(StatusCodes.NOT_FOUND).json(response);
+			return response.status(StatusCodes.NOT_FOUND).json(apiResponse);
 		}
 
 		Logger.debug(`[getWeek] Week found: ${week.title} (weekId: ${weekId})`);
@@ -256,7 +247,7 @@ export const getWeek = async (
 			`[getWeek] Completion status calculated: ${completedChallenges}/${totalChallenges} challenges completed`,
 		);
 
-		const response: ApiResponse<GetWeekResponseData> = {
+		const apiResponse: ApiResponse<GetWeekResponseData> = {
 			code: StatusCodes.OK,
 			message: "Week fetched successfully",
 			data: responseData,
@@ -265,17 +256,17 @@ export const getWeek = async (
 		Logger.info(
 			`[getWeek] Request completed successfully for userId: ${userId}, weekId: ${weekId}`,
 		);
-		return res.status(StatusCodes.OK).json(response);
+		return response.status(StatusCodes.OK).json(apiResponse);
 	} catch (error) {
 		Logger.error(
-			`[getWeek] Error occurred for userId: ${userId}, weekId: ${req.params.weekId}`,
+			`[getWeek] Error occurred for userId: ${userId}, weekId: ${request.params.weekId}`,
 			error instanceof Error ? error : new Error(String(error)),
 		);
-		const response: ApiResponse<null> = {
+		const apiResponse: ApiResponse<null> = {
 			code: StatusCodes.INTERNAL_SERVER_ERROR,
 			message: ReasonPhrases.INTERNAL_SERVER_ERROR,
 		};
-		return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(response);
+		return response.status(StatusCodes.INTERNAL_SERVER_ERROR).json(apiResponse);
 	}
 };
 
@@ -291,27 +282,24 @@ export const getWeek = async (
  * 
  * @returns Day data including prompts, mantras, and saved notes for the specified day
  */
-export const getDay = async (
-	req: AuthenticatedRequest,
-	res: Response<ApiResponse<GetDayResponseData | null>>,
-) => {
-	const { userId } = req;
+export const getDay = async (request: Request, response: Response) => {
+	const { userId } = request;
 	Logger.debug(
-		`[getDay] Request started for userId: ${userId}, params: ${JSON.stringify(req.params)}`,
+		`[getDay] Request started for userId: ${userId}, params: ${JSON.stringify(request.params)}`,
 	);
 
 	try {
 		// Validate and parse weekId and dayNumber from URL parameters
-		const { success, data } = dayRequestSchema.safeParse(req.params);
+		const { success, data } = dayRequestSchema.safeParse(request.params);
 		if (!success) {
 			Logger.warn(
-				`[getDay] Validation failed for userId: ${userId}, params: ${JSON.stringify(req.params)}`,
+				`[getDay] Validation failed for userId: ${userId}, params: ${JSON.stringify(request.params)}`,
 			);
-			const response: ApiResponse<null> = {
+			const apiResponse: ApiResponse<null> = {
 				code: StatusCodes.BAD_REQUEST,
 				message: ReasonPhrases.BAD_REQUEST,
 			};
-			return res.status(StatusCodes.BAD_REQUEST).json(response);
+			return response.status(StatusCodes.BAD_REQUEST).json(apiResponse);
 		}
 
 		const { weekId, dayNumber }: GetDayRequestParams = data;
@@ -323,11 +311,11 @@ export const getDay = async (
 			Logger.warn(
 				`[getDay] Week not found: weekId=${weekId}, dayNumber=${dayNumber}, userId=${userId}`,
 			);
-			const response: ApiResponse<null> = {
+			const apiResponse: ApiResponse<null> = {
 				code: StatusCodes.NOT_FOUND,
 				message: "Week not found",
 			};
-			return res.status(StatusCodes.NOT_FOUND).json(response);
+			return response.status(StatusCodes.NOT_FOUND).json(apiResponse);
 		}
 
 		Logger.debug(`[getDay] Week found: ${week.title} (weekId: ${weekId})`);
@@ -370,7 +358,7 @@ export const getDay = async (
 			notes: savedNotes,
 		};
 
-		const response: ApiResponse<GetDayResponseData> = {
+		const apiResponse: ApiResponse<GetDayResponseData> = {
 			code: StatusCodes.OK,
 			message: "Day fetched successfully",
 			data: responseData,
@@ -379,17 +367,17 @@ export const getDay = async (
 		Logger.info(
 			`[getDay] Request completed successfully for userId: ${userId}, weekId: ${weekId}, dayNumber: ${dayNumber}`,
 		);
-		return res.status(StatusCodes.OK).json(response);
+		return response.status(StatusCodes.OK).json(apiResponse);
 	} catch (error) {
 		Logger.error(
-			`[getDay] Error occurred for userId: ${userId}, weekId: ${req.params.weekId}, dayNumber: ${req.params.dayNumber}`,
+			`[getDay] Error occurred for userId: ${userId}, weekId: ${request.params.weekId}, dayNumber: ${request.params.dayNumber}`,
 			error instanceof Error ? error : new Error(String(error)),
 		);
-		const response: ApiResponse<null> = {
+		const apiResponse: ApiResponse<null> = {
 			code: StatusCodes.INTERNAL_SERVER_ERROR,
 			message: ReasonPhrases.INTERNAL_SERVER_ERROR,
 		};
-		return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(response);
+		return response.status(StatusCodes.INTERNAL_SERVER_ERROR).json(apiResponse);
 	}
 };
 
@@ -434,34 +422,31 @@ const dailyProgressBodySchema = z
  * 
  * @returns Success message confirming progress was saved
  */
-export const createDailyProgress = async (
-	req: AuthenticatedRequest,
-	res: Response<ApiResponse<CreateDailyProgressResponseData | null>>,
-) => {
-	const { userId } = req;
+export const createDailyProgress = async (request: Request, response: Response) => {
+	const { userId } = request;
 	Logger.debug(
-		`[createDailyProgress] Request started for userId: ${userId}, params: ${JSON.stringify(req.params)}, body: ${JSON.stringify(req.body)}`,
+		`[createDailyProgress] Request started for userId: ${userId}, params: ${JSON.stringify(request.params)}, body: ${JSON.stringify(request.body)}`,
 	);
 
 	try {
 		// Validate and parse request parameters (weekId, dayNumber from URL)
-		const { success, data } = dailyProgressParamSchema.safeParse(req.params);
+		const { success, data } = dailyProgressParamSchema.safeParse(request.params);
 
 		// Validate and parse request body (notes)
 		const {
 			success: bodySuccess,
 			data: bodyData,
-		} = dailyProgressBodySchema.safeParse(req.body);
+		} = dailyProgressBodySchema.safeParse(request.body);
 
 		if (!success || !bodySuccess) {
 			Logger.warn(
-				`[createDailyProgress] Validation failed for userId: ${userId}, params: ${JSON.stringify(req.params)}, body: ${JSON.stringify(req.body)}`,
+				`[createDailyProgress] Validation failed for userId: ${userId}, params: ${JSON.stringify(request.params)}, body: ${JSON.stringify(request.body)}`,
 			);
-			const response: ApiResponse<null> = {
+			const apiResponse: ApiResponse<null> = {
 				code: StatusCodes.BAD_REQUEST,
 				message: ReasonPhrases.BAD_REQUEST,
 			};
-			return res.status(StatusCodes.BAD_REQUEST).json(response);
+			return response.status(StatusCodes.BAD_REQUEST).json(apiResponse);
 		}
 
 		const { weekId, dayNumber }: CreateDailyProgressRequestParams = data;
@@ -632,7 +617,7 @@ export const createDailyProgress = async (
 			message: "Progress saved",
 		};
 
-		const response: ApiResponse<CreateDailyProgressResponseData> = {
+		const apiResponse: ApiResponse<CreateDailyProgressResponseData> = {
 			code: StatusCodes.OK,
 			message: "Progress saved",
 			data: responseData,
@@ -641,16 +626,16 @@ export const createDailyProgress = async (
 		Logger.info(
 			`[createDailyProgress] Request completed successfully for userId: ${userId}, weekId: ${weekId}, dayNumber: ${dayNumber}`,
 		);
-		return res.status(StatusCodes.OK).json(response);
+		return response.status(StatusCodes.OK).json(apiResponse);
 	} catch (error) {
 		Logger.error(
-			`[createDailyProgress] Error occurred for userId: ${userId}, weekId: ${req.params.weekId}, dayNumber: ${req.params.dayNumber}`,
+			`[createDailyProgress] Error occurred for userId: ${userId}, weekId: ${request.params.weekId}, dayNumber: ${request.params.dayNumber}`,
 			error instanceof Error ? error : new Error(String(error)),
 		);
-		const response: ApiResponse<null> = {
+		const apiResponse: ApiResponse<null> = {
 			code: StatusCodes.INTERNAL_SERVER_ERROR,
 			message: ReasonPhrases.INTERNAL_SERVER_ERROR,
 		};
-		return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json(response);
+		return response.status(StatusCodes.INTERNAL_SERVER_ERROR).json(apiResponse);
 	}
 };

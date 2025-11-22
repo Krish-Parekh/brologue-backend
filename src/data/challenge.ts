@@ -1,4 +1,4 @@
-import type { Week } from "../types/challenge";
+import type { Week } from "../types/challenge.types";
 
 export const challengeWeeks: Week[] = [
 	{

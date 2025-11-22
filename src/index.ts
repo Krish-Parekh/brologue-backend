@@ -11,6 +11,6 @@ app.use(clerkMiddleware());
 
 app.use("/api/v1/challenge", challengeRouter);
 
-app.listen(env.PORT, "0.0.0.0", () => {
+app.listen(env.PORT, () => {
 	console.log(`Server is running on the port ${env.PORT}.`);
 });
