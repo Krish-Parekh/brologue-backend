@@ -24,20 +24,14 @@ import { eq, and, max } from "drizzle-orm";
 import { getTodayString } from "../utils/helper";
 import Logger from "../utils/logger";
 
-/**
- * Zod schema for validating week request parameters
- * Transforms string weekId from URL params to number
- */
+
 const weekRequestSchema = z
 	.object({
 		weekId: z.string().transform((val) => parseInt(val)),
 	})
 	.strict();
 
-/**
- * Zod schema for validating day request parameters
- * Transforms string weekId and dayNumber from URL params to numbers
- */
+
 const dayRequestSchema = z
 	.object({
 		weekId: z.string().transform((val) => parseInt(val)),
@@ -184,7 +178,6 @@ export const getWeek = async (
 	);
 
 	try {
-		// Validate and parse weekId from URL parameters
 		const { success, data } = weekRequestSchema.safeParse(req.params);
 		if (!success) {
 			Logger.warn(
