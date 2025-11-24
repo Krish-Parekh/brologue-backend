@@ -49,4 +49,3 @@ export interface CreateMoodResponseData {
 export interface GetMoodResponseData {
 	mood: MoodEntry | null;
 }
-

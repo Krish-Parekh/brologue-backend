@@ -21,13 +21,11 @@ import { eq, and, max } from "drizzle-orm";
 import { getTodayString } from "../utils/helper";
 import Logger from "../utils/logger";
 
-
 const weekRequestSchema = z
 	.object({
 		weekId: z.string().transform((val) => parseInt(val)),
 	})
 	.strict();
-
 
 const dayRequestSchema = z
 	.object({
@@ -38,7 +36,7 @@ const dayRequestSchema = z
 
 /**
  * Get all challenge weeks with user progress information
- * 
+ *
  * Logic:
  * 1. Retrieves user statistics (userId available from auth middleware)
  * 2. Fetches all weeks the user has started
@@ -46,7 +44,7 @@ const dayRequestSchema = z
  * 4. Counts daily progress entries for current week
  * 5. Calculates total completed weeks and current day streak
  * 6. Maps all challenge weeks and marks them as unlocked if user has started them or if it's week 1
- * 
+ *
  * @returns All weeks with unlocked status, current week info, progress counts, and streak
  */
 export const getAllWeeks = async (request: Request, response: Response) => {
@@ -55,7 +53,9 @@ export const getAllWeeks = async (request: Request, response: Response) => {
 
 	try {
 		// Fetch user statistics (for streak information)
-		Logger.debug(`[getAllWeeks] Fetching user statistics for userId: ${userId}`);
+		Logger.debug(
+			`[getAllWeeks] Fetching user statistics for userId: ${userId}`,
+		);
 		const [userStats] = await db
 			.select()
 			.from(statistics)
@@ -65,7 +65,9 @@ export const getAllWeeks = async (request: Request, response: Response) => {
 		);
 
 		// Fetch all weeks the user has started
-		Logger.debug(`[getAllWeeks] Fetching user week progress for userId: ${userId}`);
+		Logger.debug(
+			`[getAllWeeks] Fetching user week progress for userId: ${userId}`,
+		);
 		const userWeeks = await db
 			.select()
 			.from(weekProgress)
@@ -152,14 +154,14 @@ export const getAllWeeks = async (request: Request, response: Response) => {
 
 /**
  * Get a specific challenge week with completion status for each daily challenge
- * 
+ *
  * Logic:
  * 1. Validates weekId parameter
  * 2. Finds the requested week from challenge data
  * 3. Gets the maximum day number completed by user for this week (userId available from auth middleware)
  * 4. Marks daily challenges as completed if their day <= maxDayNumber
  * 5. Returns the requested week with completion status
- * 
+ *
  * @returns Week data with completion status for each daily challenge
  */
 export const getWeek = async (request: Request, response: Response) => {
@@ -187,7 +189,9 @@ export const getWeek = async (request: Request, response: Response) => {
 		// Find the requested week
 		const week = challengeWeeks.find((week) => week.id === weekId);
 		if (!week) {
-			Logger.warn(`[getWeek] Week not found: weekId=${weekId}, userId=${userId}`);
+			Logger.warn(
+				`[getWeek] Week not found: weekId=${weekId}, userId=${userId}`,
+			);
 			const apiResponse: ApiResponse<null> = {
 				code: StatusCodes.NOT_FOUND,
 				message: "Week not found",
@@ -272,14 +276,14 @@ export const getWeek = async (request: Request, response: Response) => {
 
 /**
  * Get a specific day's prompts and mantras for a given week
- * 
+ *
  * Logic:
  * 1. Validates weekId and dayNumber parameters
  * 2. Finds the requested week from challenge data
  * 3. Fetches user's saved notes for this day (if they exist)
  * 4. Extracts prompts and mantras for the specific day
  * 5. Returns day information with associated prompts, mantras, and notes
- * 
+ *
  * @returns Day data including prompts, mantras, and saved notes for the specified day
  */
 export const getDay = async (request: Request, response: Response) => {
@@ -404,7 +408,7 @@ const dailyProgressBodySchema = z
 
 /**
  * Create or update daily progress for a specific week and day
- * 
+ *
  * Logic:
  * 1. Validates request parameters (weekId, dayNumber) and body (notes)
  * 2. Uses database transaction to ensure atomicity (userId available from auth middleware):
@@ -414,15 +418,18 @@ const dailyProgressBodySchema = z
  *       - If user logged yesterday: increment current streak, update longest if needed
  *       - If user missed a day: reset current streak to 1, keep longest streak unchanged
  *    c. Creates new stats record if user doesn't have one yet
- * 
+ *
  * Streak Calculation Logic:
  * - SCENARIO A: User already logged today → Don't update stats (prevent duplicate streak increment)
  * - SCENARIO B: User logged yesterday → Continue streak (increment current, update longest if needed)
  * - SCENARIO C: User missed a day → Reset current streak to 1, preserve longest streak
- * 
+ *
  * @returns Success message confirming progress was saved
  */
-export const createDailyProgress = async (request: Request, response: Response) => {
+export const createDailyProgress = async (
+	request: Request,
+	response: Response,
+) => {
 	const { userId } = request;
 	Logger.debug(
 		`[createDailyProgress] Request started for userId: ${userId}, params: ${JSON.stringify(request.params)}, body: ${JSON.stringify(request.body)}`,
@@ -430,13 +437,13 @@ export const createDailyProgress = async (request: Request, response: Response) 
 
 	try {
 		// Validate and parse request parameters (weekId, dayNumber from URL)
-		const { success, data } = dailyProgressParamSchema.safeParse(request.params);
+		const { success, data } = dailyProgressParamSchema.safeParse(
+			request.params,
+		);
 
 		// Validate and parse request body (notes)
-		const {
-			success: bodySuccess,
-			data: bodyData,
-		} = dailyProgressBodySchema.safeParse(request.body);
+		const { success: bodySuccess, data: bodyData } =
+			dailyProgressBodySchema.safeParse(request.body);
 
 		if (!success || !bodySuccess) {
 			Logger.warn(

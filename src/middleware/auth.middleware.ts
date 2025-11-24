@@ -5,14 +5,14 @@ import type { ApiResponse } from "../types/response";
 
 /**
  * Authentication middleware
- * 
+ *
  * Checks if the user is authenticated using Clerk.
  * If authenticated, attaches userId to the request object.
  * If not authenticated, returns 401 Unauthorized response.
- * 
+ *
  * The userId property is added to Request via TypeScript declaration merging
  * (see src/types/globals.d.ts)
- * 
+ *
  * Usage:
  * ```typescript
  * router.get("/protected", requireAuth, protectedHandler);
@@ -38,4 +38,3 @@ export const requireAuth = (
 	request.userId = userId;
 	next();
 };
-

@@ -21,4 +21,3 @@ moodRouter.get("/", getTodayMood);
 moodRouter.get("/:date", getMoodByDate);
 
 export { moodRouter };
-

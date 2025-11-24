@@ -104,7 +104,8 @@ export interface DailyChallengeWithCompletion extends DailyChallenge {
 /**
  * Focus area with completed challenges
  */
-export interface FocusAreaWithCompletion extends Omit<Week["focusAreas"][0], "dailyChallenges"> {
+export interface FocusAreaWithCompletion
+	extends Omit<Week["focusAreas"][0], "dailyChallenges"> {
 	dailyChallenges: DailyChallengeWithCompletion[];
 }
 
@@ -149,4 +150,3 @@ export interface GetDayResponseData {
 export interface CreateDailyProgressResponseData {
 	message: string;
 }
-
