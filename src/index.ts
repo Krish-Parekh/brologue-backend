@@ -1,5 +1,5 @@
 import express from "express";
-import { challengeRouter } from "./routers";
+import { challengeRouter, moodRouter } from "./routers";
 import { env } from "./utils/env";
 import { clerkMiddleware } from "@clerk/express";
 import bodyParser from "body-parser";
@@ -10,6 +10,7 @@ app.use(bodyParser.json());
 app.use(clerkMiddleware());
 
 app.use("/api/v1/challenge", challengeRouter);
+app.use("/api/v1/mood", moodRouter);
 
 app.listen(env.PORT, () => {
 	console.log(`Server is running on the port ${env.PORT}.`);
