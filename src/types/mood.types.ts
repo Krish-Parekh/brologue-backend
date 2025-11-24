@@ -40,7 +40,6 @@ export interface MoodEntry {
  * Response data for create/update mood endpoint
  */
 export interface CreateMoodResponseData {
-	message: string;
 	mood: MoodEntry;
 }
 

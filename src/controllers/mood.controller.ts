@@ -5,6 +5,7 @@ import type {
 	GetMoodRequestParams,
 	CreateMoodResponseData,
 	GetMoodResponseData,
+	MoodEntry,
 } from "../types/mood.types";
 import { StatusCodes, ReasonPhrases } from "http-status-codes";
 import { z } from "zod";
@@ -56,7 +57,7 @@ export const createOrUpdateMood = async (request: Request, response: Response) =
 		const validationResult = createMoodRequestSchema.safeParse(request.body);
 		if (!validationResult.success) {
 			Logger.warn(
-				`[createOrUpdateMood] Validation failed for userId: ${userId}, errors: ${JSON.stringify(validationResult.error.errors)}`,
+				`[createOrUpdateMood] Validation failed for userId: ${userId}, errors: ${JSON.stringify(validationResult.error.issues)}`,
 			);
 			const apiResponse: ApiResponse<null> = {
 				code: StatusCodes.BAD_REQUEST,
@@ -79,7 +80,7 @@ export const createOrUpdateMood = async (request: Request, response: Response) =
 			.values({
 				userId,
 				mood_id,
-				date: moodDate,
+				date: moodDate as string,
 			})
 			.onConflictDoUpdate({
 				target: [mood.userId, mood.date],
@@ -98,9 +99,8 @@ export const createOrUpdateMood = async (request: Request, response: Response) =
 			code: StatusCodes.OK,
 			message: "Mood entry saved successfully",
 			data: {
-				message: "Mood entry saved successfully",
-				mood: moodEntry,
-			},
+				mood: moodEntry as MoodEntry,
+			} as CreateMoodResponseData,
 		};
 
 		return response.status(StatusCodes.OK).json(apiResponse);
@@ -125,7 +125,7 @@ export const createOrUpdateMood = async (request: Request, response: Response) =
  */
 export const getTodayMood = async (request: Request, response: Response) => {
 	const { userId } = request;
-	const today = getTodayString();
+	const today: string = getTodayString();
 	Logger.debug(`[getTodayMood] Request started for userId: ${userId}, date: ${today}`);
 
 	try {
@@ -176,7 +176,7 @@ export const getMoodByDate = async (request: Request, response: Response) => {
 		const validationResult = getMoodRequestSchema.safeParse(request.params);
 		if (!validationResult.success) {
 			Logger.warn(
-				`[getMoodByDate] Validation failed for userId: ${userId}, errors: ${JSON.stringify(validationResult.error.errors)}`,
+				`[getMoodByDate] Validation failed for userId: ${userId}, errors: ${JSON.stringify(validationResult.error.issues)}`,
 			);
 			const apiResponse: ApiResponse<null> = {
 				code: StatusCodes.BAD_REQUEST,
