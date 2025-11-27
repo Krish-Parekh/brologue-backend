@@ -1,0 +1,2 @@
+ALTER TABLE "daily_week_progress" DROP CONSTRAINT "daily_week_progress_user_id_week_id_day_number_unique";--> statement-breakpoint
+ALTER TABLE "daily_week_progress" ADD CONSTRAINT "daily_week_progress_user_id_week_id_day_number_pk" PRIMARY KEY("user_id","week_id","day_number");
