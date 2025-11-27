@@ -418,11 +418,20 @@ const dailyProgressBodySchema = z
  *       - If user logged yesterday: increment current streak, update longest if needed
  *       - If user missed a day: reset current streak to 1, keep longest streak unchanged
  *    c. Creates new stats record if user doesn't have one yet
+ *    d. Checks if all days in the week are completed:
+ *       - If yes, marks the week as completed (sets completedAt timestamp)
+ *       - Unlocks the next week by creating/updating weekProgress entry
  *
  * Streak Calculation Logic:
  * - SCENARIO A: User already logged today → Don't update stats (prevent duplicate streak increment)
  * - SCENARIO B: User logged yesterday → Continue streak (increment current, update longest if needed)
  * - SCENARIO C: User missed a day → Reset current streak to 1, preserve longest streak
+ *
+ * Week Completion Logic:
+ * - After saving daily progress, checks if user has completed all days in the week
+ * - If all days completed and week not already marked as completed:
+ *   - Sets completedAt timestamp on weekProgress entry
+ *   - Unlocks the next week (creates weekProgress entry if it doesn't exist)
  *
  * @returns Success message confirming progress was saved
  */
@@ -613,6 +622,160 @@ export const createDailyProgress = async (
 				Logger.info(
 					`[createDailyProgress] STEP 4: Skipping statistics update (scenario: ${scenario})`,
 				);
+			}
+
+			// STEP 5: Check if week is completed and unlock next week if applicable
+			Logger.debug(
+				`[createDailyProgress] STEP 5: Checking week completion for userId: ${userId}, weekId: ${weekId}`,
+			);
+			
+			// Find the current week from challenge data
+			const currentWeek = challengeWeeks.find((w) => w.id === weekId);
+			if (!currentWeek) {
+				Logger.warn(
+					`[createDailyProgress] STEP 5: Week not found in challenge data: weekId=${weekId}`,
+				);
+			} else {
+				// Calculate the maximum day number in this week
+				// Get all day numbers from all focus areas
+				const allDays = currentWeek.focusAreas.flatMap((area) =>
+					area.dailyChallenges.map((challenge) => challenge.day),
+				);
+				const maxDayInWeek = Math.max(...allDays);
+				Logger.debug(
+					`[createDailyProgress] STEP 5: Max day in week ${weekId}: ${maxDayInWeek}`,
+				);
+
+				// Count distinct day numbers the user has completed for this week
+				const completedDays = await tx
+					.select({
+						dayNumber: dailyWeekProgress.dayNumber,
+					})
+					.from(dailyWeekProgress)
+					.where(
+						and(
+							eq(dailyWeekProgress.userId, userId),
+							eq(dailyWeekProgress.weekId, weekId),
+						),
+					);
+
+				const distinctDaysCompleted = new Set(
+					completedDays.map((d) => d.dayNumber),
+				).size;
+				Logger.debug(
+					`[createDailyProgress] STEP 5: Distinct days completed: ${distinctDaysCompleted}/${maxDayInWeek}`,
+				);
+
+				// Check if all days are completed
+				if (distinctDaysCompleted >= maxDayInWeek) {
+					// Check if week is already marked as completed
+					const existingWeekProgress = await tx
+						.select()
+						.from(weekProgress)
+						.where(
+							and(
+								eq(weekProgress.userId, userId),
+								eq(weekProgress.weekId, weekId),
+							),
+						)
+						.limit(1);
+
+					const weekProgressEntry = existingWeekProgress[0];
+
+					// If week is not yet marked as completed, mark it now
+					if (!weekProgressEntry?.completedAt) {
+						Logger.info(
+							`[createDailyProgress] STEP 5: Week ${weekId} completed! Marking as completed for userId: ${userId}`,
+						);
+
+						if (weekProgressEntry) {
+							// Update existing week progress entry
+							await tx
+								.update(weekProgress)
+								.set({ completedAt: new Date() })
+								.where(
+									and(
+										eq(weekProgress.userId, userId),
+										eq(weekProgress.weekId, weekId),
+									),
+								);
+							Logger.info(
+								`[createDailyProgress] STEP 5: Week ${weekId} marked as completed (updated existing entry)`,
+							);
+						} else {
+							// Create new week progress entry with completedAt
+							await tx.insert(weekProgress).values({
+								userId,
+								weekId,
+								completedAt: new Date(),
+								startedAt: new Date(),
+								unlockedAt: new Date(),
+							});
+							Logger.info(
+								`[createDailyProgress] STEP 5: Week ${weekId} marked as completed (created new entry)`,
+							);
+						}
+
+						// Unlock the next week if it exists
+						const nextWeekId = weekId + 1;
+						const nextWeek = challengeWeeks.find((w) => w.id === nextWeekId);
+						if (nextWeek) {
+							Logger.info(
+								`[createDailyProgress] STEP 5: Unlocking next week ${nextWeekId} for userId: ${userId}`,
+							);
+
+							// Insert or update week progress for next week
+							// Use onConflictDoUpdate to handle case where entry might already exist
+							// Check if entry already exists to preserve startedAt
+							const existingNextWeekProgress = await tx
+								.select()
+								.from(weekProgress)
+								.where(
+									and(
+										eq(weekProgress.userId, userId),
+										eq(weekProgress.weekId, nextWeekId),
+									),
+								)
+								.limit(1);
+
+							if (existingNextWeekProgress[0]) {
+								// Entry exists, just update unlockedAt
+								await tx
+									.update(weekProgress)
+									.set({ unlockedAt: new Date() })
+									.where(
+										and(
+											eq(weekProgress.userId, userId),
+											eq(weekProgress.weekId, nextWeekId),
+										),
+									);
+							} else {
+								// Entry doesn't exist, create it
+								await tx.insert(weekProgress).values({
+									userId,
+									weekId: nextWeekId,
+									unlockedAt: new Date(),
+									startedAt: new Date(),
+								});
+							}
+							Logger.info(
+								`[createDailyProgress] STEP 5: Next week ${nextWeekId} unlocked successfully`,
+							);
+						} else {
+							Logger.debug(
+								`[createDailyProgress] STEP 5: No next week found (weekId ${weekId} is the last week)`,
+							);
+						}
+					} else {
+						Logger.debug(
+							`[createDailyProgress] STEP 5: Week ${weekId} already marked as completed`,
+						);
+					}
+				} else {
+					Logger.debug(
+						`[createDailyProgress] STEP 5: Week ${weekId} not yet completed (${distinctDaysCompleted}/${maxDayInWeek} days)`,
+					);
+				}
 			}
 
 			Logger.info(
