@@ -1,8 +1,8 @@
 import { Router } from "express";
 import {
 	createOrUpdateExerciseSession,
-	getTodayExercises,
 	getExercisesByDate,
+	getTodayExercises,
 } from "../controllers/exercise.controller";
 import { requireAuth } from "../middleware/auth.middleware";
 

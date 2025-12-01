@@ -37,4 +37,3 @@ export interface User {
 export interface UpdateUserNameResponseData {
 	user: User;
 }
-

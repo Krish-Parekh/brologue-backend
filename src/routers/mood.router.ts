@@ -1,8 +1,8 @@
 import { Router } from "express";
 import {
 	createOrUpdateMood,
-	getTodayMood,
 	getMoodByDate,
+	getTodayMood,
 } from "../controllers/mood.controller";
 import { requireAuth } from "../middleware/auth.middleware";
 

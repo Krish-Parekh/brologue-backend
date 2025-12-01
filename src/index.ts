@@ -1,8 +1,14 @@
-import express from "express";
-import { challengeRouter, moodRouter, userRouter, exerciseRouter, healthRouter } from "./routers";
-import { env } from "./utils/env";	
 import { clerkMiddleware } from "@clerk/express";
 import bodyParser from "body-parser";
+import express from "express";
+import {
+	challengeRouter,
+	exerciseRouter,
+	healthRouter,
+	moodRouter,
+	userRouter,
+} from "./routers";
+import { env } from "./utils/env";
 
 const app = express();
 

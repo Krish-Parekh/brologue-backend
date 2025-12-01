@@ -1,6 +1,6 @@
-import type { Request, Response, NextFunction } from "express";
 import { getAuth } from "@clerk/express";
-import { StatusCodes, ReasonPhrases } from "http-status-codes";
+import type { NextFunction, Request, Response } from "express";
+import { ReasonPhrases, StatusCodes } from "http-status-codes";
 import type { ApiResponse } from "../types/response";
 
 /**

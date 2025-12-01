@@ -1,17 +1,15 @@
+import { and, asc, eq } from "drizzle-orm";
 import type { Request, Response } from "express";
-import type { ApiResponse } from "../types/response";
-import type {
-	CreateExerciseSessionRequestBody,
-	GetExerciseRequestParams,
-	CreateExerciseSessionResponseData,
-	GetExercisesResponseData,
-	ExerciseEntryData,
-} from "../types/exercise.types";
-import { StatusCodes, ReasonPhrases } from "http-status-codes";
+import { ReasonPhrases, StatusCodes } from "http-status-codes";
 import { z } from "zod";
 import { db } from "../db";
 import { exercise } from "../db/schema/exercise";
-import { eq, and, asc } from "drizzle-orm";
+import type {
+	CreateExerciseSessionResponseData,
+	ExerciseEntryData,
+	GetExercisesResponseData,
+} from "../types/exercise.types";
+import type { ApiResponse } from "../types/response";
 import { getTodayString } from "../utils/helper";
 import Logger from "../utils/logger";
 
@@ -74,10 +72,13 @@ export const createOrUpdateExerciseSession = async (
 
 	try {
 		// Validate request body
-		const validationResult =
-			createExerciseSessionRequestSchema.safeParse(request.body);
+		const validationResult = createExerciseSessionRequestSchema.safeParse(
+			request.body,
+		);
 		if (!validationResult.success) {
-			console.log(`validationResult: ${JSON.stringify(validationResult.error.issues)}`);
+			console.log(
+				`validationResult: ${JSON.stringify(validationResult.error.issues)}`,
+			);
 			Logger.warn(
 				`[createOrUpdateExerciseSession] Validation failed for userId: ${userId}, errors: ${JSON.stringify(validationResult.error.issues)}`,
 			);
@@ -215,17 +216,14 @@ export const getExercisesByDate = async (
 
 	try {
 		// Validate request parameters
-		const validationResult = getExerciseRequestSchema.safeParse(
-			request.params,
-		);
+		const validationResult = getExerciseRequestSchema.safeParse(request.params);
 		if (!validationResult.success) {
 			Logger.warn(
 				`[getExercisesByDate] Validation failed for userId: ${userId}, errors: ${JSON.stringify(validationResult.error.issues)}`,
 			);
 			const apiResponse: ApiResponse<null> = {
 				code: StatusCodes.BAD_REQUEST,
-				message:
-					"Invalid date parameter. Date must be in YYYY-MM-DD format",
+				message: "Invalid date parameter. Date must be in YYYY-MM-DD format",
 				data: null,
 			};
 			return response.status(StatusCodes.BAD_REQUEST).json(apiResponse);

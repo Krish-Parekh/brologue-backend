@@ -1,6 +1,7 @@
 // @ts-nocheck
-import { createClient } from "npm:@supabase/supabase-js";
+
 import { verifyWebhook } from "npm:@clerk/backend/webhooks";
+import { createClient } from "npm:@supabase/supabase-js";
 
 Deno.serve(async (req) => {
 	// Verify webhook signature
@@ -23,7 +24,7 @@ Deno.serve(async (req) => {
 	switch (event.type) {
 		case "user.created": {
 			// Handle user creation with transaction for both users and week_progress
-			const { data, error } = await supabase.rpc("begin");
+			const { _data, _error } = await supabase.rpc("begin");
 
 			try {
 				// Insert user

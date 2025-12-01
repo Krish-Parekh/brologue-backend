@@ -1,15 +1,11 @@
+import { eq } from "drizzle-orm";
 import type { Request, Response } from "express";
-import type { ApiResponse } from "../types/response";
-import type {
-	UpdateUserNameRequestBody,
-	UpdateUserNameResponseData,
-	User,
-} from "../types/user.types";
-import { StatusCodes, ReasonPhrases } from "http-status-codes";
+import { ReasonPhrases, StatusCodes } from "http-status-codes";
 import { z } from "zod";
 import { db } from "../db";
 import { users } from "../db/schema/users";
-import { eq } from "drizzle-orm";
+import type { ApiResponse } from "../types/response";
+import type { UpdateUserNameResponseData, User } from "../types/user.types";
 import Logger from "../utils/logger";
 
 // ============================================================================
@@ -18,8 +14,14 @@ import Logger from "../utils/logger";
 
 const updateUserNameRequestSchema = z
 	.object({
-		first_name: z.string().min(1, "first_name must be a non-empty string").optional(),
-		last_name: z.string().min(1, "last_name must be a non-empty string").optional(),
+		first_name: z
+			.string()
+			.min(1, "first_name must be a non-empty string")
+			.optional(),
+		last_name: z
+			.string()
+			.min(1, "last_name must be a non-empty string")
+			.optional(),
 	})
 	.refine(
 		(data) => data.first_name !== undefined || data.last_name !== undefined,
@@ -45,16 +47,15 @@ const updateUserNameRequestSchema = z
  * @route PATCH /api/v1/user
  * @returns Updated user data
  */
-export const updateUserName = async (
-	request: Request,
-	response: Response,
-) => {
+export const updateUserName = async (request: Request, response: Response) => {
 	const { userId } = request;
 	Logger.debug(`[updateUserName] Request started for userId: ${userId}`);
 
 	try {
 		// Validate request body
-		const validationResult = updateUserNameRequestSchema.safeParse(request.body);
+		const validationResult = updateUserNameRequestSchema.safeParse(
+			request.body,
+		);
 		if (!validationResult.success) {
 			Logger.warn(
 				`[updateUserName] Validation failed for userId: ${userId}, errors: ${JSON.stringify(validationResult.error.issues)}`,
@@ -97,9 +98,7 @@ export const updateUserName = async (
 			.returning();
 
 		if (!updatedUser) {
-			Logger.warn(
-				`[updateUserName] User not found for userId: ${userId}`,
-			);
+			Logger.warn(`[updateUserName] User not found for userId: ${userId}`);
 			const apiResponse: ApiResponse<null> = {
 				code: StatusCodes.NOT_FOUND,
 				message: "User not found",
@@ -133,4 +132,3 @@ export const updateUserName = async (
 		return response.status(StatusCodes.INTERNAL_SERVER_ERROR).json(apiResponse);
 	}
 };
-

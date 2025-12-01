@@ -23,5 +23,7 @@ export const exercise = pgTable(
 		createdAt: timestamp("created_at").defaultNow().notNull(),
 		updatedAt: timestamp("updated_at").defaultNow().notNull(),
 	},
-	(table) => [primaryKey({ columns: [table.userId, table.date, table.exerciseId] })],
+	(table) => [
+		primaryKey({ columns: [table.userId, table.date, table.exerciseId] }),
+	],
 );

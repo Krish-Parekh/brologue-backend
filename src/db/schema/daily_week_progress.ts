@@ -1,5 +1,10 @@
-import { integer, pgTable, text, primaryKey } from "drizzle-orm/pg-core";
-import { timestamp } from "drizzle-orm/pg-core";
+import {
+	integer,
+	pgTable,
+	primaryKey,
+	text,
+	timestamp,
+} from "drizzle-orm/pg-core";
 import { users } from "./users";
 
 export const dailyWeekProgress = pgTable(
@@ -14,5 +19,7 @@ export const dailyWeekProgress = pgTable(
 		createdAt: timestamp("created_at").defaultNow().notNull(),
 		updatedAt: timestamp("updated_at").defaultNow().notNull(),
 	},
-	(table) => [primaryKey({ columns: [table.userId, table.weekId, table.dayNumber] })],
+	(table) => [
+		primaryKey({ columns: [table.userId, table.weekId, table.dayNumber] }),
+	],
 );

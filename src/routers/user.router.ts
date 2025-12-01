@@ -11,4 +11,3 @@ userRouter.use(requireAuth);
 userRouter.patch("/", updateUserName);
 
 export { userRouter };
-

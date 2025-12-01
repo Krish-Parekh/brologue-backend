@@ -1,36 +1,36 @@
+import { and, eq, max } from "drizzle-orm";
 import type { Request, Response } from "express";
-import { challengeWeeks } from "../data/challenge";
-import type { ApiResponse } from "../types/response";
-import type {
-	GetWeekRequestParams,
-	GetDayRequestParams,
-	CreateDailyProgressRequestParams,
-	CreateDailyProgressRequestBody,
-	GetAllWeeksResponseData,
-	GetWeekResponseData,
-	GetDayResponseData,
-	CreateDailyProgressResponseData,
-} from "../types/challenge.types";
-import { StatusCodes, ReasonPhrases } from "http-status-codes";
+import { ReasonPhrases, StatusCodes } from "http-status-codes";
 import { z } from "zod";
+import { challengeWeeks } from "../data/challenge";
 import { db } from "../db";
 import { dailyWeekProgress } from "../db/schema/daily_week_progress";
 import { statistics } from "../db/schema/statistics";
 import { weekProgress } from "../db/schema/week_progress";
-import { eq, and, max } from "drizzle-orm";
+import type {
+	CreateDailyProgressRequestBody,
+	CreateDailyProgressRequestParams,
+	CreateDailyProgressResponseData,
+	GetAllWeeksResponseData,
+	GetDayRequestParams,
+	GetDayResponseData,
+	GetWeekRequestParams,
+	GetWeekResponseData,
+} from "../types/challenge.types";
+import type { ApiResponse } from "../types/response";
 import { getTodayString } from "../utils/helper";
 import Logger from "../utils/logger";
 
 const weekRequestSchema = z
 	.object({
-		weekId: z.string().transform((val) => parseInt(val)),
+		weekId: z.string().transform((val) => parseInt(val, 10)),
 	})
 	.strict();
 
 const dayRequestSchema = z
 	.object({
-		weekId: z.string().transform((val) => parseInt(val)),
-		dayNumber: z.string().transform((val) => parseInt(val)),
+		weekId: z.string().transform((val) => parseInt(val, 10)),
+		dayNumber: z.string().transform((val) => parseInt(val, 10)),
 	})
 	.strict();
 
@@ -391,8 +391,8 @@ export const getDay = async (request: Request, response: Response) => {
  */
 const dailyProgressParamSchema = z
 	.object({
-		weekId: z.string().transform((val) => parseInt(val)),
-		dayNumber: z.string().transform((val) => parseInt(val)),
+		weekId: z.string().transform((val) => parseInt(val, 10)),
+		dayNumber: z.string().transform((val) => parseInt(val, 10)),
 	})
 	.strict();
 
@@ -628,7 +628,7 @@ export const createDailyProgress = async (
 			Logger.debug(
 				`[createDailyProgress] STEP 5: Checking week completion for userId: ${userId}, weekId: ${weekId}`,
 			);
-			
+
 			// Find the current week from challenge data
 			const currentWeek = challengeWeeks.find((w) => w.id === weekId);
 			if (!currentWeek) {

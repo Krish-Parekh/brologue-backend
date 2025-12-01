@@ -1,17 +1,15 @@
+import { and, eq } from "drizzle-orm";
 import type { Request, Response } from "express";
-import type { ApiResponse } from "../types/response";
+import { ReasonPhrases, StatusCodes } from "http-status-codes";
+import { z } from "zod";
+import { db } from "../db";
+import { mood } from "../db/schema/mood";
 import type {
-	CreateMoodRequestBody,
-	GetMoodRequestParams,
 	CreateMoodResponseData,
 	GetMoodResponseData,
 	MoodEntry,
 } from "../types/mood.types";
-import { StatusCodes, ReasonPhrases } from "http-status-codes";
-import { z } from "zod";
-import { db } from "../db";
-import { mood } from "../db/schema/mood";
-import { eq, and } from "drizzle-orm";
+import type { ApiResponse } from "../types/response";
 import { getTodayString } from "../utils/helper";
 import Logger from "../utils/logger";
 

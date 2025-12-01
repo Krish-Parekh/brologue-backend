@@ -1,9 +1,9 @@
 import { Router } from "express";
 import {
-	getAllWeeks,
-	getWeek,
-	getDay,
 	createDailyProgress,
+	getAllWeeks,
+	getDay,
+	getWeek,
 } from "../controllers/challenge.controller";
 import { requireAuth } from "../middleware/auth.middleware";
 
