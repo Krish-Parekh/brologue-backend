@@ -1,6 +1,6 @@
 import express from "express";
 import { challengeRouter, moodRouter, userRouter, exerciseRouter, healthRouter } from "./routers";
-import { env } from "./utils/env";
+import { env } from "./utils/env";	
 import { clerkMiddleware } from "@clerk/express";
 import bodyParser from "body-parser";
 

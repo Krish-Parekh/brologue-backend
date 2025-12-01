@@ -77,6 +77,7 @@ export const createOrUpdateExerciseSession = async (
 		const validationResult =
 			createExerciseSessionRequestSchema.safeParse(request.body);
 		if (!validationResult.success) {
+			console.log(`validationResult: ${JSON.stringify(validationResult.error.issues)}`);
 			Logger.warn(
 				`[createOrUpdateExerciseSession] Validation failed for userId: ${userId}, errors: ${JSON.stringify(validationResult.error.issues)}`,
 			);
