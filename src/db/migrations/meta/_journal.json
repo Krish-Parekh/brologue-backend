@@ -43,6 +43,13 @@
       "when": 1764230899385,
       "tag": "0005_damp_bloodscream",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1764556296980,
+      "tag": "0006_slippery_johnny_storm",
+      "breakpoints": true
     }
   ]
 }
