@@ -168,7 +168,6 @@ export const getTodayExercises = async (
 	);
 
 	try {
-		console.log(`today: ${today}`);
 		const exerciseEntries = await db
 			.select()
 			.from(exercise)
