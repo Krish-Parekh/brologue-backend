@@ -11,9 +11,7 @@
  */
 export interface ExerciseEntry {
 	exerciseId: string;
-	reps: number;
 	completed: boolean;
-	order: number;
 }
 
 /**
@@ -42,9 +40,7 @@ export interface ExerciseEntryData {
 	userId: string;
 	date: string;
 	exerciseId: string;
-	reps: number;
 	completed: boolean;
-	order: number;
 	createdAt: Date;
 	updatedAt: Date;
 }

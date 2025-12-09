@@ -1,4 +1,4 @@
-import { and, asc, eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import type { Request, Response } from "express";
 import { ReasonPhrases, StatusCodes } from "http-status-codes";
 import { z } from "zod";
@@ -20,9 +20,7 @@ import Logger from "../utils/logger";
 const exerciseEntrySchema = z
 	.object({
 		exerciseId: z.string().min(1, "exerciseId is required"),
-		reps: z.number().int().min(0, "reps must be a non-negative integer"),
 		completed: z.boolean(),
-		order: z.number().int().min(0, "order must be a non-negative integer"),
 	})
 	.strict();
 
@@ -107,16 +105,12 @@ export const createOrUpdateExerciseSession = async (
 					userId,
 					date: exerciseDate as string,
 					exerciseId: exerciseEntry.exerciseId,
-					reps: exerciseEntry.reps,
 					completed: exerciseEntry.completed,
-					order: exerciseEntry.order,
 				})
 				.onConflictDoUpdate({
 					target: [exercise.userId, exercise.date, exercise.exerciseId],
 					set: {
-						reps: exerciseEntry.reps,
 						completed: exerciseEntry.completed,
-						order: exerciseEntry.order,
 						updatedAt: new Date(),
 					},
 				})
@@ -171,8 +165,7 @@ export const getTodayExercises = async (
 		const exerciseEntries = await db
 			.select()
 			.from(exercise)
-			.where(and(eq(exercise.userId, userId), eq(exercise.date, today)))
-			.orderBy(asc(exercise.order));
+			.where(and(eq(exercise.userId, userId), eq(exercise.date, today)));
 
 		Logger.info(
 			`[getTodayExercises] Found ${exerciseEntries.length} exercise entries for userId: ${userId}, date: ${today}`,
@@ -237,8 +230,7 @@ export const getExercisesByDate = async (
 		const exerciseEntries = await db
 			.select()
 			.from(exercise)
-			.where(and(eq(exercise.userId, userId), eq(exercise.date, date)))
-			.orderBy(asc(exercise.order));
+			.where(and(eq(exercise.userId, userId), eq(exercise.date, date)));
 
 		Logger.info(
 			`[getExercisesByDate] Found ${exerciseEntries.length} exercise entries for userId: ${userId}, date: ${date}`,

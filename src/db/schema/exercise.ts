@@ -1,7 +1,6 @@
 import {
 	boolean,
 	date,
-	integer,
 	pgTable,
 	primaryKey,
 	text,
@@ -17,9 +16,7 @@ export const exercise = pgTable(
 			.notNull(),
 		date: date("date").notNull(),
 		exerciseId: text("exercise_id").notNull(),
-		reps: integer("reps").notNull().default(0),
 		completed: boolean("completed").notNull().default(false),
-		order: integer("order").notNull(),
 		createdAt: timestamp("created_at").defaultNow().notNull(),
 		updatedAt: timestamp("updated_at").defaultNow().notNull(),
 	},
