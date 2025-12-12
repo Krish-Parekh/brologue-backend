@@ -5,6 +5,7 @@ import {
 	getTodayExercises,
 } from "../controllers/exercise.controller";
 import { requireAuth } from "../middleware/auth.middleware";
+import { generateExercisePlan } from "../utils/ai";
 
 const exerciseRouter = Router();
 

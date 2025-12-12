@@ -58,3 +58,33 @@ export interface CreateExerciseSessionResponseData {
 export interface GetExercisesResponseData {
 	exercises: ExerciseEntryData[];
 }
+
+/**
+ * Exercise data within a level
+ */
+export interface ExercisePlanExercise {
+	name: string;
+	sets: number;
+	reps: number;
+	restSeconds: number;
+	instructions: string;
+}
+
+/**
+ * Level data within an exercise plan
+ */
+export interface ExercisePlanLevel {
+	levelNumber: number;
+	difficulty: string;
+	exercises: ExercisePlanExercise[];
+}
+
+/**
+ * Response data for generate exercise plan endpoint
+ */
+export interface GenerateExercisePlanResponseData {
+	goal: string;
+	fitnessLevel: "beginner" | "intermediate" | "advanced";
+	frequency: number;
+	levels: ExercisePlanLevel[];
+}
