@@ -11,7 +11,28 @@ const groq = new Groq({ apiKey: env.GROQ_API_KEY });
 
 const exerciseSchema = z
     .object({
-        name: z.string().min(1, "Exercise name is required"),
+        name: z.enum([
+            "Push-ups",
+            "Squats", 
+            "Lunges",
+            "Plank",
+            "Burpees",
+            "Mountain Climbers",
+            "Jumping Jacks",
+            "High Knees",
+            "Glute Bridges",
+            "Tricep Dips",
+            "Wall Sit",
+            "Calf Raises",
+            "Russian Twists",
+            "Bicycle Crunches",
+            "Dead Bug",
+            "Bird Dog",
+            "Superman",
+            "Side Plank",
+            "Bear Crawl",
+            "Inchworm"
+        ]),
         sets: z.number().int().positive("Sets must be a positive integer"),
         reps: z.number().int().positive("Reps must be a positive integer"),
         restSeconds: z
@@ -218,34 +239,115 @@ export const generateExercisePlan = async (
 
         const userMessage = `Generate a progressive home workout plan to help me achieve my goal: "${goal}". I am at ${fitnessLevel} fitness level and can train ${frequency} days per week.`;
 
-        const groqResponse = await groq.chat.completions.create({
-            model: "openai/gpt-oss-120b",
-            messages: [
-                {
-                    role: "system",
-                    content: systemMessage,
-                },
-                {
-                    role: "user",
-                    content: userMessage,
-                },
-            ],
-            temperature: 0.7,
-            max_completion_tokens: 8192,
-            top_p: 1,
-            stream: false,
-            reasoning_effort: "medium",
-            response_format: {
-                type: "json_schema",
-                json_schema: {
-                    name: "exercise_plan",
-                    schema: z.toJSONSchema(exercisePlanResponseSchema),
-                    strict: true,
-                },
-            },
-        });
+        const maxRetries = 3;
+        let content: any = null;
+        let lastValidationError: z.ZodError | null = null;
 
-        const content = JSON.parse(groqResponse.choices[0]?.message?.content || "{}");
+        for (let attempt = 0; attempt <= maxRetries; attempt++) {
+            try {
+                const messages: Array<{ role: "system" | "user"; content: string }> = [
+                    {
+                        role: "system",
+                        content: systemMessage,
+                    },
+                    {
+                        role: "user",
+                        content: userMessage,
+                    },
+                ];
+
+                // If this is a retry, add error feedback to help fix the JSON
+                if (attempt > 0 && lastValidationError) {
+                    const errorMessages = lastValidationError.issues
+                        .map((err: z.core.$ZodIssue) => {
+                            const path = err.path.join(".");
+                            return `- ${path}: ${err.message}`;
+                        })
+                        .join("\n");
+
+                    messages.push({
+                        role: "user",
+                        content: `The previous JSON response failed validation. Please fix the following errors:\n\n${errorMessages}\n\nPlease regenerate the JSON response with all errors corrected.`,
+                    });
+                }
+
+                const groqResponse = await groq.chat.completions.create({
+                    model: "openai/gpt-oss-120b",
+                    messages,
+                    temperature: 0.7,
+                    max_completion_tokens: 8192,
+                    top_p: 1,
+                    stream: false,
+                    reasoning_effort: "medium",
+                    response_format: {
+                        type: "json_schema",
+                        json_schema: {
+                            name: "exercise_plan",
+                            schema: z.toJSONSchema(exercisePlanResponseSchema),
+                            strict: true,
+                        },
+                    },
+                });
+
+                const rawContent = groqResponse.choices[0]?.message?.content || "{}";
+                
+                // Parse JSON
+                let parsedContent: any;
+                try {
+                    parsedContent = JSON.parse(rawContent);
+                } catch (parseError) {
+                    Logger.warn(
+                        `[generateExercisePlan] JSON parse error on attempt ${attempt + 1}/${maxRetries + 1}: ${parseError instanceof Error ? parseError.message : String(parseError)}`,
+                    );
+                    if (attempt < maxRetries) {
+                        const issue: z.ZodIssue = {
+                            code: z.ZodIssueCode.custom,
+                            path: [],
+                            message: `Invalid JSON format: ${parseError instanceof Error ? parseError.message : String(parseError)}`,
+                        };
+                        lastValidationError = new z.ZodError([issue]) as z.ZodError;
+                        continue;
+                    }
+                    throw parseError;
+                }
+
+                // Validate against schema
+                const validationResult = exercisePlanResponseSchema.safeParse(parsedContent);
+                
+                if (!validationResult.success) {
+                    Logger.warn(
+                        `[generateExercisePlan] Validation failed on attempt ${attempt + 1}/${maxRetries + 1}, errors: ${JSON.stringify(validationResult.error.issues)}`,
+                    );
+                    lastValidationError = validationResult.error;
+                    
+                    if (attempt < maxRetries) {
+                        continue; // Retry with error feedback
+                    } else {
+                        // Max retries reached, throw validation error
+                        throw new Error(
+                            `Validation failed after ${maxRetries + 1} attempts: ${JSON.stringify(validationResult.error.issues)}`,
+                        );
+                    }
+                }
+
+                // Validation successful
+                content = validationResult.data;
+                break;
+            } catch (error) {
+                // If it's not a validation error we're handling, or if we've exhausted retries
+                if (attempt === maxRetries) {
+                    throw error;
+                }
+                // For other errors, log and retry
+                Logger.warn(
+                    `[generateExercisePlan] Error on attempt ${attempt + 1}/${maxRetries + 1}: ${error instanceof Error ? error.message : String(error)}`,
+                );
+            }
+        }
+
+        if (!content) {
+            throw new Error("Failed to generate valid exercise plan after all retries");
+        }
 
 
         const apiResponse: ApiResponse<GenerateExercisePlanResponseData> = {

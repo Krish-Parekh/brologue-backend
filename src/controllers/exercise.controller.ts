@@ -13,10 +13,6 @@ import type { ApiResponse } from "../types/response";
 import { getTodayString } from "../utils/helper";
 import Logger from "../utils/logger";
 
-// ============================================================================
-// Validation Schemas
-// ============================================================================
-
 const exerciseEntrySchema = z
 	.object({
 		exerciseId: z.string().min(1, "exerciseId is required"),
