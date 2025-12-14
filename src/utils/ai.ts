@@ -1,91 +1,93 @@
-import Groq from "groq-sdk";
 import type { Request, Response } from "express";
+import Groq from "groq-sdk";
 import { ReasonPhrases, StatusCodes } from "http-status-codes";
 import { z } from "zod";
+import type { GenerateExercisePlanResponseData } from "../types/exercise.types";
+import type { ApiResponse } from "../types/response";
 import { env } from "./env";
 import Logger from "./logger";
-import type { ApiResponse } from "../types/response";
-import type { GenerateExercisePlanResponseData } from "../types/exercise.types";
 
 const groq = new Groq({ apiKey: env.GROQ_API_KEY });
 
 const exerciseSchema = z
-    .object({
-        name: z.enum([
-            "Push-ups",
-            "Squats", 
-            "Lunges",
-            "Plank",
-            "Burpees",
-            "Mountain Climbers",
-            "Jumping Jacks",
-            "High Knees",
-            "Glute Bridges",
-            "Tricep Dips",
-            "Wall Sit",
-            "Calf Raises",
-            "Russian Twists",
-            "Bicycle Crunches",
-            "Dead Bug",
-            "Bird Dog",
-            "Superman",
-            "Side Plank",
-            "Bear Crawl",
-            "Inchworm"
-        ]),
-        sets: z.number().int().positive("Sets must be a positive integer"),
-        reps: z.number().int().positive("Reps must be a positive integer"),
-        restSeconds: z
-            .number()
-            .int()
-            .positive("Rest seconds must be a positive integer"),
-        instructions: z.string().min(1, "Instructions are required"),
-    })
-    .strict();
+	.object({
+		name: z.enum([
+			"Push-ups",
+			"Squats",
+			"Lunges",
+			"Plank",
+			"Burpees",
+			"Mountain Climbers",
+			"Jumping Jacks",
+			"High Knees",
+			"Glute Bridges",
+			"Tricep Dips",
+			"Wall Sit",
+			"Calf Raises",
+			"Russian Twists",
+			"Bicycle Crunches",
+			"Dead Bug",
+			"Bird Dog",
+			"Superman",
+			"Side Plank",
+			"Bear Crawl",
+			"Inchworm",
+		]),
+		sets: z.number().int().positive("Sets must be a positive integer"),
+		reps: z.number().int().positive("Reps must be a positive integer"),
+		restSeconds: z
+			.number()
+			.int()
+			.positive("Rest seconds must be a positive integer"),
+		instructions: z.string().min(1, "Instructions are required"),
+	})
+	.strict();
 
 const levelSchema = z
-    .object({
-        levelNumber: z
-            .number()
-            .int()
-            .min(1, "Level number must be at least 1")
-            .max(5, "Level number must be at most 5"),
-        difficulty: z.string().min(1, "Difficulty description is required"),
-        exercises: z.array(exerciseSchema).length(5, "Exactly 5 exercises required"),
-    })
-    .strict();
+	.object({
+		levelNumber: z
+			.number()
+			.int()
+			.min(1, "Level number must be at least 1")
+			.max(5, "Level number must be at most 5"),
+		difficulty: z.string().min(1, "Difficulty description is required"),
+		exercises: z
+			.array(exerciseSchema)
+			.length(5, "Exactly 5 exercises required"),
+	})
+	.strict();
 
 export const exercisePlanResponseSchema = z
-    .object({
-        goal: z.string().min(1, "Goal is required"),
-        fitnessLevel: z.enum(["beginner", "intermediate", "advanced"]),
-        frequency: z
-            .number()
-            .int()
-            .min(1, "Frequency must be at least 1 day per week")
-            .max(7, "Frequency cannot exceed 7 days per week"),
-        levels: z.array(levelSchema).length(5, "Exactly 5 levels required"),
-    })
-    .strict();
+	.object({
+		goal: z.string().min(1, "Goal is required"),
+		fitnessLevel: z.enum(["beginner", "intermediate", "advanced"]),
+		frequency: z
+			.number()
+			.int()
+			.min(1, "Frequency must be at least 1 day per week")
+			.max(7, "Frequency cannot exceed 7 days per week"),
+		levels: z.array(levelSchema).length(5, "Exactly 5 levels required"),
+	})
+	.strict();
 
 const generateExercisePlanRequestSchema = z
-    .object({
-        goal: z.string().min(1, "Goal is required"),
-        fitnessLevel: z.enum(["beginner", "intermediate", "advanced"]),
-        frequency: z
-            .number()
-            .int()
-            .min(1, "Frequency must be at least 1 day per week")
-            .max(7, "Frequency cannot exceed 7 days per week"),
-    })
-    .strict();
+	.object({
+		goal: z.string().min(1, "Goal is required"),
+		fitnessLevel: z.enum(["beginner", "intermediate", "advanced"]),
+		frequency: z
+			.number()
+			.int()
+			.min(1, "Frequency must be at least 1 day per week")
+			.max(7, "Frequency cannot exceed 7 days per week"),
+	})
+	.strict();
 
 const getSystemMessage = (
-    goal: string,
-    fitnessLevel: string,
-    frequency: number,
+	goal: string,
+	fitnessLevel: string,
+	frequency: number,
 ) => {
-    return `You are an expert fitness coach specializing in home-based workout plans.
+	return `You are an expert fitness coach specializing in home-based workout plans.
 
 YOUR PRIMARY MISSION:
 Generate a custom, progressive exercise plan tailored to help the user achieve their specific fitness goal: "${goal}".
@@ -296,7 +298,8 @@ export const generateExercisePlanWithAI = async (
 			}
 
 			// Validate against schema
-			const validationResult = exercisePlanResponseSchema.safeParse(parsedContent);
+			const validationResult =
+				exercisePlanResponseSchema.safeParse(parsedContent);
 
 			if (!validationResult.success) {
 				Logger.warn(

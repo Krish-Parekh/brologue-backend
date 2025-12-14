@@ -1,5 +1,7 @@
-import type { GenerateExercisePlanResponseData } from "../types/exercise.types";
-import type { WorkoutExerciseCompletionData } from "../types/exercise.types";
+import type {
+	GenerateExercisePlanResponseData,
+	WorkoutExerciseCompletionData,
+} from "../types/exercise.types";
 
 /**
  * Calculate workout plan statistics

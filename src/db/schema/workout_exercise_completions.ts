@@ -24,6 +24,11 @@ export const workoutExerciseCompletions = pgTable(
 	},
 	(table) => [
 		// User can only complete each exercise once per level per plan
-		unique().on(table.userId, table.planId, table.levelNumber, table.exerciseName),
+		unique().on(
+			table.userId,
+			table.planId,
+			table.levelNumber,
+			table.exerciseName,
+		),
 	],
 );
