@@ -402,3 +402,120 @@ export const updateExerciseCompletion = async (
 		return response.status(StatusCodes.INTERNAL_SERVER_ERROR).json(apiResponse);
 	}
 };
+
+const updateExercisePlanRequestSchema = z
+	.object({
+		levelNumber: z.number().int().min(1).max(5),
+		exerciseName: z.string().min(1, "Exercise name is required"),
+		sets: z.number().int().min(1, "Sets must be at least 1"),
+		reps: z.number().int().min(1, "Reps must be at least 1"),
+	})
+	.strict();
+
+export const updateExercisePlan = async (
+	request: Request,
+	response: Response,
+) => {
+	const { userId } = request;
+	try {
+		const validationResult = updateExercisePlanRequestSchema.safeParse(
+			request.body,
+		);
+		if (!validationResult.success) {
+			Logger.warn(
+				`[updateExercisePlan] Validation failed for userId: ${userId}, errors: ${JSON.stringify(validationResult.error.issues)}`,
+			);
+			const apiResponse: ApiResponse<null> = {
+				code: StatusCodes.BAD_REQUEST,
+				message: "Invalid request body",
+				data: null,
+			};
+			return response.status(StatusCodes.BAD_REQUEST).json(apiResponse);
+		}
+
+		const { levelNumber, exerciseName, sets, reps } = validationResult.data;
+
+		// Get the user's workout plan
+		const existingPlan = await db
+			.select()
+			.from(workoutPlans)
+			.where(eq(workoutPlans.userId, userId))
+			.limit(1);
+
+		const plan = existingPlan[0];
+		if (!plan) {
+			const apiResponse: ApiResponse<null> = {
+				code: StatusCodes.NOT_FOUND,
+				message: "No workout plan found for user",
+				data: null,
+			};
+			return response.status(StatusCodes.NOT_FOUND).json(apiResponse);
+		}
+
+		// Update the planData
+		const planData = plan.planData as GenerateExercisePlanResponseData;
+		const level = planData.levels.find((l) => l.levelNumber === levelNumber);
+		if (!level) {
+			const apiResponse: ApiResponse<null> = {
+				code: StatusCodes.BAD_REQUEST,
+				message: `Level ${levelNumber} not found in workout plan`,
+				data: null,
+			};
+			return response.status(StatusCodes.BAD_REQUEST).json(apiResponse);
+		}
+
+		const exercise = level.exercises.find((e) => e.name === exerciseName);
+		if (!exercise) {
+			const apiResponse: ApiResponse<null> = {
+				code: StatusCodes.BAD_REQUEST,
+				message: `Exercise "${exerciseName}" not found in level ${levelNumber}`,
+				data: null,
+			};
+			return response.status(StatusCodes.BAD_REQUEST).json(apiResponse);
+		}
+
+		// Update the exercise sets and reps
+		exercise.sets = sets;
+		exercise.reps = reps;
+
+		// Update the plan in the database
+		const [updated] = await db
+			.update(workoutPlans)
+			.set({
+				planData: planData as any,
+				updatedAt: new Date(),
+			})
+			.where(eq(workoutPlans.id, plan.id))
+			.returning();
+
+		if (!updated) {
+			throw new Error("Failed to update workout plan");
+		}
+
+		const apiResponse: ApiResponse<WorkoutPlanData> = {
+			code: StatusCodes.OK,
+			message: "Exercise plan updated successfully",
+			data: {
+				id: updated.id,
+				userId: updated.userId,
+				goal: updated.goal,
+				fitnessLevel: updated.fitnessLevel as "beginner" | "intermediate" | "advanced",
+				frequency: updated.frequency,
+				planData: updated.planData as GenerateExercisePlanResponseData,
+				createdAt: updated.createdAt,
+				updatedAt: updated.updatedAt,
+			},
+		};
+		return response.status(StatusCodes.OK).json(apiResponse);
+	} catch (error) {
+		Logger.error(
+			`[updateExercisePlan] Error updating exercise plan for userId: ${userId}, error: ${error instanceof Error ? error.message : String(error)}`,
+		);
+		const apiResponse: ApiResponse<null> = {
+			code: StatusCodes.INTERNAL_SERVER_ERROR,
+			message: "Failed to update exercise plan",
+			data: null,
+		};
+		return response.status(StatusCodes.INTERNAL_SERVER_ERROR).json(apiResponse);
+	}
+};

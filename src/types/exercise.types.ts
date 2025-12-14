@@ -168,3 +168,13 @@ export interface GenerateAndStoreWorkoutPlanResponseData {
 export interface UpdateExerciseCompletionResponseData {
 	completion: WorkoutExerciseCompletionData;
 }
+
+/**
+ * Request body for updating exercise sets/reps in plan
+ */
+export interface UpdateExercisePlanRequestBody {
+	levelNumber: number; // 1-5
+	exerciseName: string; // Must match exercise name from plan
+	sets: number;
+	reps: number;
+}
