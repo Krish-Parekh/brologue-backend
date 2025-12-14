@@ -1,9 +1,6 @@
-import type { Request, Response } from "express";
 import Groq from "groq-sdk";
-import { ReasonPhrases, StatusCodes } from "http-status-codes";
 import { z } from "zod";
 import type { GenerateExercisePlanResponseData } from "../types/exercise.types";
-import type { ApiResponse } from "../types/response";
 import { env } from "./env";
 import Logger from "./logger";
 
@@ -70,7 +67,7 @@ export const exercisePlanResponseSchema = z
 	})
 	.strict();
 
-const generateExercisePlanRequestSchema = z
+const _generateExercisePlanRequestSchema = z
 	.object({
 		goal: z.string().min(1, "Goal is required"),
 		fitnessLevel: z.enum(["beginner", "intermediate", "advanced"]),

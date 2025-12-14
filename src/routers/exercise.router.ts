@@ -1,9 +1,4 @@
 import { Router } from "express";
-import {
-	generateAndStoreWorkoutPlan,
-	// getUserWorkoutPlan,
-	// updateExerciseCompletion,
-} from "../controllers/exercise.controller";
 import { requireAuth } from "../middleware/auth.middleware";
 
 const exerciseRouter = Router();
