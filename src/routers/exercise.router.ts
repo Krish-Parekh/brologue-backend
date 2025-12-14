@@ -1,18 +1,18 @@
 import { Router } from "express";
 import { requireAuth } from "../middleware/auth.middleware";
-
+import { generateAndStoreWorkoutPlan, getUserWorkoutPlan, updateExerciseCompletion } from "../controllers/exercise.controller";
 const exerciseRouter = Router();
 
 // All exercise routes require authentication
 exerciseRouter.use(requireAuth);
 
-// // Generate and store workout plan (must come before /:date route)
-// exerciseRouter.post("/plan", generateAndStoreWorkoutPlan);
+// Get user's workout plan (must come before POST /plan route)
+exerciseRouter.get("/plan", getUserWorkoutPlan);
 
-// // Get user's workout plan with completions and statistics (must come before /:date route)
-// exerciseRouter.get("/plan", getUserWorkoutPlan);
+// Generate and store workout plan (must come before /:date route)
+exerciseRouter.post("/plan", generateAndStoreWorkoutPlan);
 
-// // Update exercise completion (sets/reps)
-// exerciseRouter.patch("/plan/exercises", updateExerciseCompletion);
+// Update exercise completion (sets/reps)
+exerciseRouter.patch("/plan/exercises", updateExerciseCompletion);
 
 export { exerciseRouter };
