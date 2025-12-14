@@ -207,177 +207,131 @@ OUTPUT REQUIREMENTS:
 
 Remember: Your goal is to create a safe, effective, and progressive home workout plan that helps the user achieve "${goal}" while respecting their ${fitnessLevel} fitness level and ${frequency} days per week commitment. Use ONLY the exercise names specified above.`;
 };
+/**
+ * Generate exercise plan using Groq AI
+ * This is a reusable function that can be called from controllers
+ */
+export const generateExercisePlanWithAI = async (
+	goal: string,
+	fitnessLevel: "beginner" | "intermediate" | "advanced",
+	frequency: number,
+): Promise<GenerateExercisePlanResponseData> => {
+	Logger.debug(
+		`[generateExercisePlanWithAI] Generating plan for goal: ${goal}, fitnessLevel: ${fitnessLevel}, frequency: ${frequency}`,
+	);
 
+	const systemMessage = getSystemMessage(goal, fitnessLevel, frequency);
+	const userMessage = `Generate a progressive home workout plan to help me achieve my goal: "${goal}". I am at ${fitnessLevel} fitness level and can train ${frequency} days per week.`;
 
-export const generateExercisePlan = async (
-    request: Request,
-    response: Response,
-) => {
-    try {
-        const validationResult =
-            generateExercisePlanRequestSchema.safeParse(request.body);
-        if (!validationResult.success) {
-            Logger.warn(
-                `[generateExercisePlan] Validation failed for request body, errors: ${JSON.stringify(validationResult.error.issues)}`,
-            );
-            const apiResponse: ApiResponse<null> = {
-                code: StatusCodes.BAD_REQUEST,
-                message: "Invalid request body",
-                data: null,
-            };
-            return response.status(StatusCodes.BAD_REQUEST).json(apiResponse);
-        }
+	const maxRetries = 3;
+	let content: GenerateExercisePlanResponseData | null = null;
+	let lastValidationError: z.ZodError | null = null;
 
-        const { goal, fitnessLevel, frequency } = validationResult.data;
+	for (let attempt = 0; attempt <= maxRetries; attempt++) {
+		try {
+			const messages: Array<{ role: "system" | "user"; content: string }> = [
+				{
+					role: "system",
+					content: systemMessage,
+				},
+				{
+					role: "user",
+					content: userMessage,
+				},
+			];
 
-        Logger.debug(
-            `[generateExercisePlan] Generating plan for goal: ${goal}, fitnessLevel: ${fitnessLevel}, frequency: ${frequency}`,
-        );
+			// If this is a retry, add error feedback to help fix the JSON
+			if (attempt > 0 && lastValidationError) {
+				const errorMessages = lastValidationError.issues
+					.map((err: z.core.$ZodIssue) => {
+						const path = err.path.join(".");
+						return `- ${path}: ${err.message}`;
+					})
+					.join("\n");
 
+				messages.push({
+					role: "user",
+					content: `The previous JSON response failed validation. Please fix the following errors:\n\n${errorMessages}\n\nPlease regenerate the JSON response with all errors corrected.`,
+				});
+			}
 
-        const systemMessage = getSystemMessage(goal, fitnessLevel, frequency);
+			const groqResponse = await groq.chat.completions.create({
+				model: "openai/gpt-oss-120b",
+				messages,
+				temperature: 0.7,
+				max_completion_tokens: 8192,
+				top_p: 1,
+				stream: false,
+				reasoning_effort: "medium",
+				response_format: {
+					type: "json_schema",
+					json_schema: {
+						name: "exercise_plan",
+						schema: z.toJSONSchema(exercisePlanResponseSchema),
+						strict: true,
+					},
+				},
+			});
 
-        const userMessage = `Generate a progressive home workout plan to help me achieve my goal: "${goal}". I am at ${fitnessLevel} fitness level and can train ${frequency} days per week.`;
+			const rawContent = groqResponse.choices[0]?.message?.content || "{}";
 
-        const maxRetries = 3;
-        let content: any = null;
-        let lastValidationError: z.ZodError | null = null;
+			// Parse JSON
+			let parsedContent: any;
+			try {
+				parsedContent = JSON.parse(rawContent);
+			} catch (parseError) {
+				Logger.warn(
+					`[generateExercisePlanWithAI] JSON parse error on attempt ${attempt + 1}/${maxRetries + 1}: ${parseError instanceof Error ? parseError.message : String(parseError)}`,
+				);
+				if (attempt < maxRetries) {
+					const issue: z.ZodIssue = {
+						code: z.ZodIssueCode.custom,
+						path: [],
+						message: `Invalid JSON format: ${parseError instanceof Error ? parseError.message : String(parseError)}`,
+					};
+					lastValidationError = new z.ZodError([issue]) as z.ZodError;
+					continue;
+				}
+				throw parseError;
+			}
 
-        for (let attempt = 0; attempt <= maxRetries; attempt++) {
-            try {
-                const messages: Array<{ role: "system" | "user"; content: string }> = [
-                    {
-                        role: "system",
-                        content: systemMessage,
-                    },
-                    {
-                        role: "user",
-                        content: userMessage,
-                    },
-                ];
+			// Validate against schema
+			const validationResult = exercisePlanResponseSchema.safeParse(parsedContent);
 
-                // If this is a retry, add error feedback to help fix the JSON
-                if (attempt > 0 && lastValidationError) {
-                    const errorMessages = lastValidationError.issues
-                        .map((err: z.core.$ZodIssue) => {
-                            const path = err.path.join(".");
-                            return `- ${path}: ${err.message}`;
-                        })
-                        .join("\n");
+			if (!validationResult.success) {
+				Logger.warn(
+					`[generateExercisePlanWithAI] Validation failed on attempt ${attempt + 1}/${maxRetries + 1}, errors: ${JSON.stringify(validationResult.error.issues)}`,
+				);
+				lastValidationError = validationResult.error;
 
-                    messages.push({
-                        role: "user",
-                        content: `The previous JSON response failed validation. Please fix the following errors:\n\n${errorMessages}\n\nPlease regenerate the JSON response with all errors corrected.`,
-                    });
-                }
+				if (attempt < maxRetries) {
+					continue; // Retry with error feedback
+				} else {
+					// Max retries reached, throw validation error
+					throw new Error(
+						`Validation failed after ${maxRetries + 1} attempts: ${JSON.stringify(validationResult.error.issues)}`,
+					);
+				}
+			}
 
-                const groqResponse = await groq.chat.completions.create({
-                    model: "openai/gpt-oss-120b",
-                    messages,
-                    temperature: 0.7,
-                    max_completion_tokens: 8192,
-                    top_p: 1,
-                    stream: false,
-                    reasoning_effort: "medium",
-                    response_format: {
-                        type: "json_schema",
-                        json_schema: {
-                            name: "exercise_plan",
-                            schema: z.toJSONSchema(exercisePlanResponseSchema),
-                            strict: true,
-                        },
-                    },
-                });
+			// Validation successful
+			content = validationResult.data;
+			break;
+		} catch (error) {
+			// If it's not a validation error we're handling, or if we've exhausted retries
+			if (attempt === maxRetries) {
+				throw error;
+			}
+			// For other errors, log and retry
+			Logger.warn(
+				`[generateExercisePlanWithAI] Error on attempt ${attempt + 1}/${maxRetries + 1}: ${error instanceof Error ? error.message : String(error)}`,
+			);
+		}
+	}
 
-                const rawContent = groqResponse.choices[0]?.message?.content || "{}";
-                
-                // Parse JSON
-                let parsedContent: any;
-                try {
-                    parsedContent = JSON.parse(rawContent);
-                } catch (parseError) {
-                    Logger.warn(
-                        `[generateExercisePlan] JSON parse error on attempt ${attempt + 1}/${maxRetries + 1}: ${parseError instanceof Error ? parseError.message : String(parseError)}`,
-                    );
-                    if (attempt < maxRetries) {
-                        const issue: z.ZodIssue = {
-                            code: z.ZodIssueCode.custom,
-                            path: [],
-                            message: `Invalid JSON format: ${parseError instanceof Error ? parseError.message : String(parseError)}`,
-                        };
-                        lastValidationError = new z.ZodError([issue]) as z.ZodError;
-                        continue;
-                    }
-                    throw parseError;
-                }
+	if (!content) {
+		throw new Error("Failed to generate valid exercise plan after all retries");
+	}
 
-                // Validate against schema
-                const validationResult = exercisePlanResponseSchema.safeParse(parsedContent);
-                
-                if (!validationResult.success) {
-                    Logger.warn(
-                        `[generateExercisePlan] Validation failed on attempt ${attempt + 1}/${maxRetries + 1}, errors: ${JSON.stringify(validationResult.error.issues)}`,
-                    );
-                    lastValidationError = validationResult.error;
-                    
-                    if (attempt < maxRetries) {
-                        continue; // Retry with error feedback
-                    } else {
-                        // Max retries reached, throw validation error
-                        throw new Error(
-                            `Validation failed after ${maxRetries + 1} attempts: ${JSON.stringify(validationResult.error.issues)}`,
-                        );
-                    }
-                }
-
-                // Validation successful
-                content = validationResult.data;
-                break;
-            } catch (error) {
-                // If it's not a validation error we're handling, or if we've exhausted retries
-                if (attempt === maxRetries) {
-                    throw error;
-                }
-                // For other errors, log and retry
-                Logger.warn(
-                    `[generateExercisePlan] Error on attempt ${attempt + 1}/${maxRetries + 1}: ${error instanceof Error ? error.message : String(error)}`,
-                );
-            }
-        }
-
-        if (!content) {
-            throw new Error("Failed to generate valid exercise plan after all retries");
-        }
-
-
-        const apiResponse: ApiResponse<GenerateExercisePlanResponseData> = {
-            code: StatusCodes.OK,
-            message: "Exercise plan generated successfully",
-            data: content,
-        };
-
-        return response.status(StatusCodes.OK).json(apiResponse);
-    } catch (error) {
-        Logger.error(
-            `[generateExercisePlan] Error generating exercise plan, error: ${error instanceof Error ? error.message : String(error)}`,
-        );
-
-        if (error instanceof Error && error.message.includes("groq")) {
-            const apiResponse: ApiResponse<null> = {
-                code: StatusCodes.SERVICE_UNAVAILABLE,
-                message: "AI service temporarily unavailable",
-                data: null,
-            };
-            return response
-                .status(StatusCodes.SERVICE_UNAVAILABLE)
-                .json(apiResponse);
-        }
-
-        const apiResponse: ApiResponse<null> = {
-            code: StatusCodes.INTERNAL_SERVER_ERROR,
-            message: ReasonPhrases.INTERNAL_SERVER_ERROR,
-            data: null,
-        };
-        return response.status(StatusCodes.INTERNAL_SERVER_ERROR).json(apiResponse);
-    }
+	return content;
 };

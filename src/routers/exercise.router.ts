@@ -1,24 +1,23 @@
 import { Router } from "express";
 import {
-	createOrUpdateExerciseSession,
-	getExercisesByDate,
-	getTodayExercises,
+	generateAndStoreWorkoutPlan,
+	// getUserWorkoutPlan,
+	// updateExerciseCompletion,
 } from "../controllers/exercise.controller";
 import { requireAuth } from "../middleware/auth.middleware";
-import { generateExercisePlan } from "../utils/ai";
 
 const exerciseRouter = Router();
 
 // All exercise routes require authentication
 exerciseRouter.use(requireAuth);
 
-// Create or update exercise session (defaults to today if date not provided)
-exerciseRouter.post("/", createOrUpdateExerciseSession);
+// // Generate and store workout plan (must come before /:date route)
+// exerciseRouter.post("/plan", generateAndStoreWorkoutPlan);
 
-// Get today's exercise entries
-exerciseRouter.get("/", getTodayExercises);
+// // Get user's workout plan with completions and statistics (must come before /:date route)
+// exerciseRouter.get("/plan", getUserWorkoutPlan);
 
-// Get exercise entries for a specific date
-exerciseRouter.get("/:date", getExercisesByDate);
+// // Update exercise completion (sets/reps)
+// exerciseRouter.patch("/plan/exercises", updateExerciseCompletion);
 
 export { exerciseRouter };

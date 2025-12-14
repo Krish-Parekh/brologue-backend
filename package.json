@@ -9,6 +9,8 @@
 		"build": "tsup src/index.ts --format esm --dts --clean",
 		"db:generate": "drizzle-kit generate",
 		"db:migrate": "drizzle-kit migrate",
+		"db:pull": "drizzle-kit pull",
+		"db:push": "drizzle-kit push",
 		"db:studio": "drizzle-kit studio",
 		"lint": "biome check .",
 		"lint:fix": "biome check . --write",

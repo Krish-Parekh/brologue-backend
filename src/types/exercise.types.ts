@@ -88,3 +88,83 @@ export interface GenerateExercisePlanResponseData {
 	frequency: number;
 	levels: ExercisePlanLevel[];
 }
+
+// ============================================================================
+// Workout Plan Types
+// ============================================================================
+
+/**
+ * Workout plan data stored in database
+ */
+export interface WorkoutPlanData {
+	id: string;
+	userId: string;
+	goal: string;
+	fitnessLevel: "beginner" | "intermediate" | "advanced";
+	frequency: number;
+	planData: GenerateExercisePlanResponseData; // Full plan structure
+	createdAt: Date;
+	updatedAt: Date;
+}
+
+/**
+ * Exercise completion data stored in database
+ */
+export interface WorkoutExerciseCompletionData {
+	id: string;
+	userId: string;
+	planId: string;
+	levelNumber: number;
+	exerciseName: string;
+	plannedSets: number;
+	plannedReps: number;
+	completedSets: number;
+	completedReps: number;
+	completedAt: Date;
+	createdAt: Date;
+	updatedAt: Date;
+}
+
+/**
+ * Request body for updating exercise completion
+ */
+export interface UpdateExerciseCompletionRequestBody {
+	levelNumber: number; // 1-5
+	exerciseName: string; // Must match exercise name from plan
+	completedSets: number;
+	completedReps: number;
+}
+
+/**
+ * Response data for get workout plan endpoint
+ */
+export interface GetWorkoutPlanResponseData {
+	plan: WorkoutPlanData;
+	completions: WorkoutExerciseCompletionData[];
+	statistics: {
+		goalCompletionPercentage: number; // 0-100
+		totalExercises: number; // Total exercises across all levels
+		completedExercises: number; // Count of unique completed exercises
+		currentLevel: number; // Highest level with at least one completed exercise
+	};
+}
+
+/**
+ * Response data for generate and store workout plan endpoint
+ */
+export interface GenerateAndStoreWorkoutPlanResponseData {
+	id: string;
+	goal: string;
+	fitnessLevel: "beginner" | "intermediate" | "advanced";
+	frequency: number;
+	levels: ExercisePlanLevel[];
+	createdAt: Date;
+	updatedAt: Date;
+}
+
+/**
+ * Response data for update exercise completion endpoint
+ */
+export interface UpdateExerciseCompletionResponseData {
+	completion: WorkoutExerciseCompletionData;
+}
