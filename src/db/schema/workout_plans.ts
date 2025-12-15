@@ -1,3 +1,4 @@
+import { randomUUID } from "crypto";
 import {
 	integer,
 	jsonb,
@@ -13,7 +14,7 @@ export const workoutPlans = pgTable(
 	{
 		id: text("id")
 			.primaryKey()
-			.$defaultFn(() => crypto.randomUUID()),
+			.$defaultFn(() => randomUUID()),
 		userId: text("user_id")
 			.references(() => users.id, { onDelete: "cascade" })
 			.notNull(),

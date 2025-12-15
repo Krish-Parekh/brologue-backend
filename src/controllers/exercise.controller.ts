@@ -1,3 +1,4 @@
+import { randomUUID } from "crypto";
 import { and, eq, max, sql } from "drizzle-orm";
 import type { Request, Response } from "express";
 import { StatusCodes } from "http-status-codes";
@@ -284,7 +285,7 @@ export const updateExerciseCompletion = async (
 		const [created] = await db
 			.insert(workoutExerciseCompletions)
 			.values({
-				id: crypto.randomUUID(),
+				id: randomUUID(),
 				userId,
 				planId: plan.id,
 				levelNumber,
