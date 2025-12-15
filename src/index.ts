@@ -10,11 +10,13 @@ import {
 	userRouter,
 } from "./routers";
 import { env } from "./utils/env";
+import compression from "compression";
 
 const app = express();
 
-app.use(bodyParser.json());
+app.use(bodyParser.json({ limit: "10mb" }));
 app.use(clerkMiddleware());
+app.use(compression());
 
 app.use("/api/v1/health", healthRouter);
 app.use("/api/v1/challenge", challengeRouter);
