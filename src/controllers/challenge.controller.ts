@@ -1,4 +1,4 @@
-import { and, eq, max } from "drizzle-orm";
+import { and, desc, eq, isNotNull, max, sql } from "drizzle-orm";
 import type { Request, Response } from "express";
 import { StatusCodes } from "http-status-codes";
 import { challengeWeeks } from "../data/challenge";
@@ -53,7 +53,7 @@ export const getAllWeeks = async (request: Request, response: Response) => {
 		`[getAllWeeks] User statistics retrieved: ${userStats ? `streak=${userStats.currentStreak}, longest=${userStats.longestStreak}` : "no stats found"}`,
 	);
 
-	// Fetch all weeks the user has started
+	// Fetch all weeks the user has started (needed for unlock status check)
 	Logger.debug(
 		`[getAllWeeks] Fetching user week progress for userId: ${userId}`,
 	);
@@ -66,18 +66,25 @@ export const getAllWeeks = async (request: Request, response: Response) => {
 	);
 
 	// Determine current week: highest weekId from user's progress, or default to week 1
-	const currentWeekObj = userWeeks.sort((a, b) => b.weekId - a.weekId)[0];
+	// Optimized: Use database ORDER BY instead of sorting in memory
+	const [currentWeekObj] = await db
+		.select()
+		.from(weekProgress)
+		.where(eq(weekProgress.userId, userId))
+		.orderBy(desc(weekProgress.weekId))
+		.limit(1);
 	const currentWeekId = currentWeekObj ? currentWeekObj.weekId : 1;
 	Logger.info(
 		`[getAllWeeks] Current week determined: ${currentWeekId} ${currentWeekObj ? "(from user progress)" : "(default)"}`,
 	);
 
 	// Count daily progress entries for the current week
+	// Optimized: Use database COUNT instead of loading all records
 	Logger.debug(
-		`[getAllWeeks] Fetching daily progress for userId: ${userId}, weekId: ${currentWeekId}`,
+		`[getAllWeeks] Counting daily progress for userId: ${userId}, weekId: ${currentWeekId}`,
 	);
-	const currentWeekProgress = await db
-		.select()
+	const weekProgressResult = await db
+		.select({ count: sql<number>`cast(count(*) as integer)` })
 		.from(dailyWeekProgress)
 		.where(
 			and(
@@ -87,11 +94,19 @@ export const getAllWeeks = async (request: Request, response: Response) => {
 		);
 
 	// Calculate progress metrics
-	const weekProgressCount = currentWeekProgress.length;
-	const totalWeeksCompleted = userWeeks.filter((w) => w.completedAt).length;
+	// Optimized: Use database COUNT with WHERE clause instead of filtering in memory
+	const totalWeeksCompletedResult = await db
+		.select({ count: sql<number>`cast(count(*) as integer)` })
+		.from(weekProgress)
+		.where(
+			and(eq(weekProgress.userId, userId), isNotNull(weekProgress.completedAt)),
+		);
+
+	const weekProgressCountValue = weekProgressResult[0]?.count ?? 0;
+	const totalWeeksCompletedValue = totalWeeksCompletedResult[0]?.count ?? 0;
 	const dayStreak = userStats ? userStats.currentStreak : 0;
 	Logger.info(
-		`[getAllWeeks] Progress metrics calculated: weekProgress=${weekProgressCount}, totalWeeksCompleted=${totalWeeksCompleted}, dayStreak=${dayStreak}`,
+		`[getAllWeeks] Progress metrics calculated: weekProgress=${weekProgressCountValue}, totalWeeksCompleted=${totalWeeksCompletedValue}, dayStreak=${dayStreak}`,
 	);
 
 	// Map all challenge weeks and determine unlock status
@@ -113,8 +128,8 @@ export const getAllWeeks = async (request: Request, response: Response) => {
 	const responseData: GetAllWeeksResponseData = {
 		currentWeek: currentWeekId,
 		dayStreak,
-		totalWeeksCompleted,
-		weekProgress: weekProgressCount,
+		totalWeeksCompleted: totalWeeksCompletedValue,
+		weekProgress: weekProgressCountValue,
 		weeks,
 	};
 
@@ -538,9 +553,10 @@ export const createDailyProgress = async (
 			);
 
 			// Count distinct day numbers the user has completed for this week
-			const completedDays = await tx
+			// Optimized: Use database COUNT DISTINCT instead of loading all records and using Set
+			const distinctDaysCompletedResult = await tx
 				.select({
-					dayNumber: dailyWeekProgress.dayNumber,
+					count: sql<number>`cast(count(distinct ${dailyWeekProgress.dayNumber}) as integer)`,
 				})
 				.from(dailyWeekProgress)
 				.where(
@@ -550,15 +566,14 @@ export const createDailyProgress = async (
 					),
 				);
 
-			const distinctDaysCompleted = new Set(
-				completedDays.map((d) => d.dayNumber),
-			).size;
+			const distinctDaysCompletedValue =
+				distinctDaysCompletedResult[0]?.count ?? 0;
 			Logger.debug(
-				`[createDailyProgress] STEP 5: Distinct days completed: ${distinctDaysCompleted}/${maxDayInWeek}`,
+				`[createDailyProgress] STEP 5: Distinct days completed: ${distinctDaysCompletedValue}/${maxDayInWeek}`,
 			);
 
 			// Check if all days are completed
-			if (distinctDaysCompleted >= maxDayInWeek) {
+			if (distinctDaysCompletedValue >= maxDayInWeek) {
 				// Check if week is already marked as completed
 				const existingWeekProgress = await tx
 					.select()
@@ -664,7 +679,7 @@ export const createDailyProgress = async (
 				}
 			} else {
 				Logger.debug(
-					`[createDailyProgress] STEP 5: Week ${weekId} not yet completed (${distinctDaysCompleted}/${maxDayInWeek} days)`,
+					`[createDailyProgress] STEP 5: Week ${weekId} not yet completed (${distinctDaysCompletedValue}/${maxDayInWeek} days)`,
 				);
 			}
 		}

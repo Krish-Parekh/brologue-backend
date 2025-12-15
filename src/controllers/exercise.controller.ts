@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, max, sql } from "drizzle-orm";
 import type { Request, Response } from "express";
 import { StatusCodes } from "http-status-codes";
 import { db } from "../db";
@@ -96,11 +96,23 @@ export const getUserWorkoutPlan = async (
 		return response.status(StatusCodes.NOT_FOUND).json(apiResponse);
 	}
 
-	// Get all completions for this plan
+	// Get all completions for this plan (needed for response data)
 	const completions = await db
 		.select()
 		.from(workoutExerciseCompletions)
 		.where(eq(workoutExerciseCompletions.planId, plan.id));
+
+	// Optimized: Get count and max level directly from database
+	const statsResult = await db
+		.select({
+			count: sql<number>`cast(count(*) as integer)`,
+			maxLevel: max(workoutExerciseCompletions.levelNumber),
+		})
+		.from(workoutExerciseCompletions)
+		.where(eq(workoutExerciseCompletions.planId, plan.id));
+
+	const completedExercises = statsResult[0]?.count ?? 0;
+	const maxLevel = statsResult[0]?.maxLevel ?? null;
 
 	const planData: WorkoutPlanData = {
 		id: plan.id,
@@ -136,11 +148,8 @@ export const getUserWorkoutPlan = async (
 		statistics: {
 			goalCompletionPercentage: 0, // Can be calculated if needed
 			totalExercises: 0, // Can be calculated if needed
-			completedExercises: completionData.length,
-			currentLevel:
-				completionData.length > 0
-					? Math.max(...completionData.map((c) => c.levelNumber))
-					: 0,
+			completedExercises,
+			currentLevel: maxLevel ?? 0,
 		},
 	};
 

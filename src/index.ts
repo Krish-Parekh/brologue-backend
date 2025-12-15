@@ -1,5 +1,6 @@
 import { clerkMiddleware } from "@clerk/express";
 import bodyParser from "body-parser";
+import compression from "compression";
 import express from "express";
 import { errorHandler } from "./middleware/error.middleware";
 import {
@@ -10,7 +11,6 @@ import {
 	userRouter,
 } from "./routers";
 import { env } from "./utils/env";
-import compression from "compression";
 
 const app = express();
 
