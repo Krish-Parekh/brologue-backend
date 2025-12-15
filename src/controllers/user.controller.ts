@@ -1,5 +1,5 @@
 import { eq } from "drizzle-orm";
-import type { Request, Response } from "express";
+import type { NextFunction, Request, Response } from "express";
 import { ReasonPhrases, StatusCodes } from "http-status-codes";
 import { z } from "zod";
 import { db } from "../db";
@@ -47,7 +47,11 @@ const updateUserNameRequestSchema = z
  * @route PATCH /api/v1/user
  * @returns Updated user data
  */
-export const updateUserName = async (request: Request, response: Response) => {
+export const updateUserName = async (
+	request: Request,
+	response: Response,
+	next: NextFunction,
+) => {
 	const { userId } = request;
 	Logger.debug(`[updateUserName] Request started for userId: ${userId}`);
 
@@ -121,14 +125,6 @@ export const updateUserName = async (request: Request, response: Response) => {
 
 		return response.status(StatusCodes.OK).json(apiResponse);
 	} catch (error) {
-		Logger.error(
-			`[updateUserName] Error updating user name for userId: ${userId}, error: ${error instanceof Error ? error.message : String(error)}`,
-		);
-		const apiResponse: ApiResponse<null> = {
-			code: StatusCodes.INTERNAL_SERVER_ERROR,
-			message: ReasonPhrases.INTERNAL_SERVER_ERROR,
-			data: null,
-		};
-		return response.status(StatusCodes.INTERNAL_SERVER_ERROR).json(apiResponse);
+		next(error);
 	}
 };

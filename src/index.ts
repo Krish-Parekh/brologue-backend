@@ -8,6 +8,7 @@ import {
 	moodRouter,
 	userRouter,
 } from "./routers";
+import { errorHandler } from "./middleware/error.middleware";
 import { env } from "./utils/env";
 
 const app = express();
@@ -20,6 +21,9 @@ app.use("/api/v1/challenge", challengeRouter);
 app.use("/api/v1/mood", moodRouter);
 app.use("/api/v1/user", userRouter);
 app.use("/api/v1/exercise", exerciseRouter);
+
+// Error handler must be last
+app.use(errorHandler);
 
 app.listen(env.PORT, () => {
 	console.log(`Server is running on the port ${env.PORT}.`);

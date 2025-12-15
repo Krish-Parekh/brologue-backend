@@ -1,5 +1,5 @@
 import { and, eq, max } from "drizzle-orm";
-import type { Request, Response } from "express";
+import type { NextFunction, Request, Response } from "express";
 import { ReasonPhrases, StatusCodes } from "http-status-codes";
 import { z } from "zod";
 import { challengeWeeks } from "../data/challenge";
@@ -47,7 +47,11 @@ const dayRequestSchema = z
  *
  * @returns All weeks with unlocked status, current week info, progress counts, and streak
  */
-export const getAllWeeks = async (request: Request, response: Response) => {
+export const getAllWeeks = async (
+	request: Request,
+	response: Response,
+	next: NextFunction,
+) => {
 	const { userId } = request;
 	Logger.debug(`[getAllWeeks] Request started for userId: ${userId}`);
 
@@ -140,15 +144,7 @@ export const getAllWeeks = async (request: Request, response: Response) => {
 		);
 		return response.status(StatusCodes.OK).json(apiResponse);
 	} catch (error) {
-		Logger.error(
-			`[getAllWeeks] Error occurred for userId: ${userId}`,
-			error instanceof Error ? error : new Error(String(error)),
-		);
-		const apiResponse: ApiResponse<null> = {
-			code: StatusCodes.INTERNAL_SERVER_ERROR,
-			message: ReasonPhrases.INTERNAL_SERVER_ERROR,
-		};
-		return response.status(StatusCodes.INTERNAL_SERVER_ERROR).json(apiResponse);
+		next(error);
 	}
 };
 
@@ -164,7 +160,11 @@ export const getAllWeeks = async (request: Request, response: Response) => {
  *
  * @returns Week data with completion status for each daily challenge
  */
-export const getWeek = async (request: Request, response: Response) => {
+export const getWeek = async (
+	request: Request,
+	response: Response,
+	next: NextFunction,
+) => {
 	const { userId } = request;
 	Logger.debug(
 		`[getWeek] Request started for userId: ${userId}, params: ${JSON.stringify(request.params)}`,
@@ -262,15 +262,7 @@ export const getWeek = async (request: Request, response: Response) => {
 		);
 		return response.status(StatusCodes.OK).json(apiResponse);
 	} catch (error) {
-		Logger.error(
-			`[getWeek] Error occurred for userId: ${userId}, weekId: ${request.params.weekId}`,
-			error instanceof Error ? error : new Error(String(error)),
-		);
-		const apiResponse: ApiResponse<null> = {
-			code: StatusCodes.INTERNAL_SERVER_ERROR,
-			message: ReasonPhrases.INTERNAL_SERVER_ERROR,
-		};
-		return response.status(StatusCodes.INTERNAL_SERVER_ERROR).json(apiResponse);
+		next(error);
 	}
 };
 
@@ -286,7 +278,11 @@ export const getWeek = async (request: Request, response: Response) => {
  *
  * @returns Day data including prompts, mantras, and saved notes for the specified day
  */
-export const getDay = async (request: Request, response: Response) => {
+export const getDay = async (
+	request: Request,
+	response: Response,
+	next: NextFunction,
+) => {
 	const { userId } = request;
 	Logger.debug(
 		`[getDay] Request started for userId: ${userId}, params: ${JSON.stringify(request.params)}`,
@@ -373,15 +369,7 @@ export const getDay = async (request: Request, response: Response) => {
 		);
 		return response.status(StatusCodes.OK).json(apiResponse);
 	} catch (error) {
-		Logger.error(
-			`[getDay] Error occurred for userId: ${userId}, weekId: ${request.params.weekId}, dayNumber: ${request.params.dayNumber}`,
-			error instanceof Error ? error : new Error(String(error)),
-		);
-		const apiResponse: ApiResponse<null> = {
-			code: StatusCodes.INTERNAL_SERVER_ERROR,
-			message: ReasonPhrases.INTERNAL_SERVER_ERROR,
-		};
-		return response.status(StatusCodes.INTERNAL_SERVER_ERROR).json(apiResponse);
+		next(error);
 	}
 };
 
@@ -436,6 +424,10 @@ const dailyProgressBodySchema = z
  * @returns Success message confirming progress was saved
  */
 export const createDailyProgress = async (
+	request: Request,
+	response: Response,
+	next: NextFunction,
+) => {
 	request: Request,
 	response: Response,
 ) => {
@@ -798,14 +790,6 @@ export const createDailyProgress = async (
 		);
 		return response.status(StatusCodes.OK).json(apiResponse);
 	} catch (error) {
-		Logger.error(
-			`[createDailyProgress] Error occurred for userId: ${userId}, weekId: ${request.params.weekId}, dayNumber: ${request.params.dayNumber}`,
-			error instanceof Error ? error : new Error(String(error)),
-		);
-		const apiResponse: ApiResponse<null> = {
-			code: StatusCodes.INTERNAL_SERVER_ERROR,
-			message: ReasonPhrases.INTERNAL_SERVER_ERROR,
-		};
-		return response.status(StatusCodes.INTERNAL_SERVER_ERROR).json(apiResponse);
+		next(error);
 	}
 };

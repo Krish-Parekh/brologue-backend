@@ -1,5 +1,5 @@
 import { and, eq } from "drizzle-orm";
-import type { Request, Response } from "express";
+import type { NextFunction, Request, Response } from "express";
 import { ReasonPhrases, StatusCodes } from "http-status-codes";
 import { z } from "zod";
 import { db } from "../db";
@@ -54,6 +54,7 @@ const getMoodRequestSchema = z
 export const createOrUpdateMood = async (
 	request: Request,
 	response: Response,
+	next: NextFunction,
 ) => {
 	const { userId } = request;
 	Logger.debug(`[createOrUpdateMood] Request started for userId: ${userId}`);
@@ -111,15 +112,7 @@ export const createOrUpdateMood = async (
 
 		return response.status(StatusCodes.OK).json(apiResponse);
 	} catch (error) {
-		Logger.error(
-			`[createOrUpdateMood] Error creating/updating mood for userId: ${userId}, error: ${error instanceof Error ? error.message : String(error)}`,
-		);
-		const apiResponse: ApiResponse<null> = {
-			code: StatusCodes.INTERNAL_SERVER_ERROR,
-			message: ReasonPhrases.INTERNAL_SERVER_ERROR,
-			data: null,
-		};
-		return response.status(StatusCodes.INTERNAL_SERVER_ERROR).json(apiResponse);
+		next(error);
 	}
 };
 
@@ -129,7 +122,11 @@ export const createOrUpdateMood = async (
  * @route GET /api/v1/mood
  * @returns Today's mood entry or null if not found
  */
-export const getTodayMood = async (request: Request, response: Response) => {
+export const getTodayMood = async (
+	request: Request,
+	response: Response,
+	next: NextFunction,
+) => {
 	const { userId } = request;
 	const today: string = getTodayString();
 	Logger.debug(
@@ -157,15 +154,7 @@ export const getTodayMood = async (request: Request, response: Response) => {
 
 		return response.status(StatusCodes.OK).json(apiResponse);
 	} catch (error) {
-		Logger.error(
-			`[getTodayMood] Error fetching mood for userId: ${userId}, error: ${error instanceof Error ? error.message : String(error)}`,
-		);
-		const apiResponse: ApiResponse<null> = {
-			code: StatusCodes.INTERNAL_SERVER_ERROR,
-			message: ReasonPhrases.INTERNAL_SERVER_ERROR,
-			data: null,
-		};
-		return response.status(StatusCodes.INTERNAL_SERVER_ERROR).json(apiResponse);
+		next(error);
 	}
 };
 
@@ -175,7 +164,11 @@ export const getTodayMood = async (request: Request, response: Response) => {
  * @route GET /api/v1/mood/:date
  * @returns Mood entry for the specified date or null if not found
  */
-export const getMoodByDate = async (request: Request, response: Response) => {
+export const getMoodByDate = async (
+	request: Request,
+	response: Response,
+	next: NextFunction,
+) => {
 	const { userId } = request;
 	Logger.debug(`[getMoodByDate] Request started for userId: ${userId}`);
 
@@ -220,14 +213,6 @@ export const getMoodByDate = async (request: Request, response: Response) => {
 
 		return response.status(StatusCodes.OK).json(apiResponse);
 	} catch (error) {
-		Logger.error(
-			`[getMoodByDate] Error fetching mood for userId: ${userId}, error: ${error instanceof Error ? error.message : String(error)}`,
-		);
-		const apiResponse: ApiResponse<null> = {
-			code: StatusCodes.INTERNAL_SERVER_ERROR,
-			message: ReasonPhrases.INTERNAL_SERVER_ERROR,
-			data: null,
-		};
-		return response.status(StatusCodes.INTERNAL_SERVER_ERROR).json(apiResponse);
+		next(error);
 	}
 };

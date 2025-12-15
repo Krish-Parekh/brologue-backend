@@ -1,5 +1,5 @@
 import { and, eq } from "drizzle-orm";
-import type { Request, Response } from "express";
+import type { NextFunction, Request, Response } from "express";
 import { StatusCodes } from "http-status-codes";
 import { z } from "zod";
 import { db } from "../db";
@@ -31,6 +31,7 @@ const generateAndStoreWorkoutPlanRequestSchema = z
 export const generateAndStoreWorkoutPlan = async (
 	request: Request,
 	response: Response,
+	next: NextFunction,
 ) => {
 	const { userId } = request;
 	try {
@@ -100,21 +101,14 @@ export const generateAndStoreWorkoutPlan = async (
 		};
 		return response.status(StatusCodes.OK).json(apiResponse);
 	} catch (error) {
-		Logger.error(
-			`[generateAndStoreWorkoutPlan] Error generating and storing workout plan for userId: ${userId}, error: ${error instanceof Error ? error.message : String(error)}`,
-		);
-		const apiResponse: ApiResponse<null> = {
-			code: StatusCodes.INTERNAL_SERVER_ERROR,
-			message: "Failed to generate and store workout plan",
-			data: null,
-		};
-		return response.status(StatusCodes.INTERNAL_SERVER_ERROR).json(apiResponse);
+		next(error);
 	}
 };
 
 export const getUserWorkoutPlan = async (
 	request: Request,
 	response: Response,
+	next: NextFunction,
 ) => {
 	const { userId } = request;
 	try {
@@ -191,15 +185,7 @@ export const getUserWorkoutPlan = async (
 		};
 		return response.status(StatusCodes.OK).json(apiResponse);
 	} catch (error) {
-		Logger.error(
-			`[getUserWorkoutPlan] Error retrieving workout plan for userId: ${userId}, error: ${error instanceof Error ? error.message : String(error)}`,
-		);
-		const apiResponse: ApiResponse<null> = {
-			code: StatusCodes.INTERNAL_SERVER_ERROR,
-			message: "Failed to retrieve workout plan",
-			data: null,
-		};
-		return response.status(StatusCodes.INTERNAL_SERVER_ERROR).json(apiResponse);
+		next(error);
 	}
 };
 
@@ -215,6 +201,7 @@ const updateExerciseCompletionRequestSchema = z
 export const updateExerciseCompletion = async (
 	request: Request,
 	response: Response,
+	next: NextFunction,
 ) => {
 	const { userId } = request;
 	try {
@@ -391,15 +378,7 @@ export const updateExerciseCompletion = async (
 		};
 		return response.status(StatusCodes.OK).json(apiResponse);
 	} catch (error) {
-		Logger.error(
-			`[updateExerciseCompletion] Error updating exercise completion for userId: ${userId}, error: ${error instanceof Error ? error.message : String(error)}`,
-		);
-		const apiResponse: ApiResponse<null> = {
-			code: StatusCodes.INTERNAL_SERVER_ERROR,
-			message: "Failed to update exercise completion",
-			data: null,
-		};
-		return response.status(StatusCodes.INTERNAL_SERVER_ERROR).json(apiResponse);
+		next(error);
 	}
 };
 
@@ -415,6 +394,7 @@ const updateExercisePlanRequestSchema = z
 export const updateExercisePlan = async (
 	request: Request,
 	response: Response,
+	next: NextFunction,
 ) => {
 	const { userId } = request;
 	try {
@@ -508,14 +488,6 @@ export const updateExercisePlan = async (
 		};
 		return response.status(StatusCodes.OK).json(apiResponse);
 	} catch (error) {
-		Logger.error(
-			`[updateExercisePlan] Error updating exercise plan for userId: ${userId}, error: ${error instanceof Error ? error.message : String(error)}`,
-		);
-		const apiResponse: ApiResponse<null> = {
-			code: StatusCodes.INTERNAL_SERVER_ERROR,
-			message: "Failed to update exercise plan",
-			data: null,
-		};
-		return response.status(StatusCodes.INTERNAL_SERVER_ERROR).json(apiResponse);
+		next(error);
 	}
 };
