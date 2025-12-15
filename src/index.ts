@@ -1,6 +1,7 @@
 import { clerkMiddleware } from "@clerk/express";
 import bodyParser from "body-parser";
 import express from "express";
+import { errorHandler } from "./middleware/error.middleware";
 import {
 	challengeRouter,
 	exerciseRouter,
@@ -8,7 +9,6 @@ import {
 	moodRouter,
 	userRouter,
 } from "./routers";
-import { errorHandler } from "./middleware/error.middleware";
 import { env } from "./utils/env";
 
 const app = express();

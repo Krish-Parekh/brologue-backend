@@ -2,6 +2,51 @@
  * Exercise-related types
  */
 
+import { z } from "zod";
+
+// ============================================================================
+// Validation Schemas
+// ============================================================================
+
+/**
+ * Schema for validating generate and store workout plan request body
+ */
+export const generateAndStoreWorkoutPlanRequestSchema = z
+	.object({
+		goal: z.string().min(1, "Goal is required"),
+		fitnessLevel: z.enum(["beginner", "intermediate", "advanced"]),
+		frequency: z
+			.number()
+			.int()
+			.min(1, "Frequency must be at least 1 day per week")
+			.max(7, "Frequency cannot exceed 7 days per week"),
+	})
+	.strict();
+
+/**
+ * Schema for validating update exercise completion request body
+ */
+export const updateExerciseCompletionRequestSchema = z
+	.object({
+		levelNumber: z.number().int().min(1).max(5),
+		exerciseName: z.string().min(1, "Exercise name is required"),
+		completedSets: z.number().int().min(0),
+		completedReps: z.number().int().min(0),
+	})
+	.strict();
+
+/**
+ * Schema for validating update exercise plan request body
+ */
+export const updateExercisePlanRequestSchema = z
+	.object({
+		levelNumber: z.number().int().min(1).max(5),
+		exerciseName: z.string().min(1, "Exercise name is required"),
+		sets: z.number().int().min(1, "Sets must be at least 1"),
+		reps: z.number().int().min(1, "Reps must be at least 1"),
+	})
+	.strict();
+
 // ============================================================================
 // Request Types
 // ============================================================================

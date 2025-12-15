@@ -3,6 +3,54 @@
  * Consolidated from challenge.ts, challenge-requests.ts, and challenge-responses.ts
  */
 
+import { z } from "zod";
+
+// ============================================================================
+// Validation Schemas
+// ============================================================================
+
+/**
+ * Schema for validating week request parameters
+ * Transforms string weekId from URL params to number
+ */
+export const weekRequestSchema = z
+	.object({
+		weekId: z.string().transform((val) => parseInt(val, 10)),
+	})
+	.strict();
+
+/**
+ * Schema for validating day request parameters
+ * Transforms string weekId and dayNumber from URL params to numbers
+ */
+export const dayRequestSchema = z
+	.object({
+		weekId: z.string().transform((val) => parseInt(val, 10)),
+		dayNumber: z.string().transform((val) => parseInt(val, 10)),
+	})
+	.strict();
+
+/**
+ * Schema for validating daily progress request parameters
+ * Transforms string weekId and dayNumber from URL params to numbers
+ */
+export const dailyProgressParamSchema = z
+	.object({
+		weekId: z.string().transform((val) => parseInt(val, 10)),
+		dayNumber: z.string().transform((val) => parseInt(val, 10)),
+	})
+	.strict();
+
+/**
+ * Schema for validating daily progress request body
+ * Validates optional notes field
+ */
+export const dailyProgressBodySchema = z
+	.object({
+		notes: z.string().optional(),
+	})
+	.strict();
+
 // ============================================================================
 // Core Challenge Types
 // ============================================================================

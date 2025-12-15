@@ -2,6 +2,36 @@
  * Mood-related types
  */
 
+import { z } from "zod";
+
+// ============================================================================
+// Validation Schemas
+// ============================================================================
+
+/**
+ * Schema for validating create/update mood request body
+ */
+export const createMoodRequestSchema = z
+	.object({
+		mood_id: z.string().min(1, "mood_id is required"),
+		date: z
+			.string()
+			.regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be in YYYY-MM-DD format")
+			.optional(),
+	})
+	.strict();
+
+/**
+ * Schema for validating get mood by date request parameters
+ */
+export const getMoodRequestSchema = z
+	.object({
+		date: z
+			.string()
+			.regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be in YYYY-MM-DD format"),
+	})
+	.strict();
+
 // ============================================================================
 // Request Types
 // ============================================================================

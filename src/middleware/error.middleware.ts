@@ -1,7 +1,7 @@
 import type { NextFunction, Request, Response } from "express";
 import { ReasonPhrases, StatusCodes } from "http-status-codes";
-import Logger from "../utils/logger";
 import type { ApiResponse } from "../types/response";
+import Logger from "../utils/logger";
 
 /**
  * Global error handler middleware
@@ -20,7 +20,7 @@ export const errorHandler = (
 	error: Error,
 	request: Request,
 	response: Response,
-	next: NextFunction,
+	_next: NextFunction,
 ) => {
 	Logger.error(`[${request.path}] Error:`, error);
 
