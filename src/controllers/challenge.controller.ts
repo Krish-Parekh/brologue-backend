@@ -428,9 +428,6 @@ export const createDailyProgress = async (
 	response: Response,
 	next: NextFunction,
 ) => {
-	request: Request,
-	response: Response,
-) => {
 	const { userId } = request;
 	Logger.debug(
 		`[createDailyProgress] Request started for userId: ${userId}, params: ${JSON.stringify(request.params)}, body: ${JSON.stringify(request.body)}`,
