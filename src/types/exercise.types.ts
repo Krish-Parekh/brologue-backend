@@ -20,6 +20,7 @@ export const generateAndStoreWorkoutPlanRequestSchema = z
 			.int()
 			.min(1, "Frequency must be at least 1 day per week")
 			.max(7, "Frequency cannot exceed 7 days per week"),
+		workoutType: z.enum(["Cardio", "Strength training", "Yoga", "Stretching"]),
 	})
 	.strict();
 
@@ -147,7 +148,9 @@ export interface WorkoutPlanData {
 	goal: string;
 	fitnessLevel: "beginner" | "intermediate" | "advanced";
 	frequency: number;
-	planData: GenerateExercisePlanResponseData; // Full plan structure
+	workoutType: string;
+	planData: GenerateExercisePlanResponseData; // Full plan structure (raw AI response)
+	workoutPlan: WorkoutPlan; // Transformed plan for UI
 	createdAt: Date;
 	updatedAt: Date;
 }
@@ -184,7 +187,12 @@ export interface UpdateExerciseCompletionRequestBody {
  * Response data for get workout plan endpoint
  */
 export interface GetWorkoutPlanResponseData {
-	plan: WorkoutPlanData;
+	plan: {
+		id: string;
+		workoutPlan: WorkoutPlan;
+		createdAt: Date;
+		updatedAt: Date;
+	};
 	completions: WorkoutExerciseCompletionData[];
 	statistics: {
 		goalCompletionPercentage: number; // 0-100
@@ -195,14 +203,45 @@ export interface GetWorkoutPlanResponseData {
 }
 
 /**
+ * Workout frequency options for UI
+ */
+export type WorkoutFrequency = "1-2 times per week" | "3-4 times per week" | "5-6 times per week" | "Daily";
+
+/**
+ * Fitness level types for UI (capitalized)
+ */
+export type FitnessLevel = "Beginner" | "Intermediate" | "Advanced";
+
+/**
+ * Workout plan structure for UI display
+ */
+export interface WorkoutPlan {
+	title: string;
+	userInfo: {
+		fitnessGoal: string;
+		fitnessLevel: FitnessLevel;
+		preferredWorkout: string;
+		workoutFrequency: WorkoutFrequency;
+	};
+	levels: Array<{
+		levelNumber: number;
+		difficulty: string;
+		exercises: Array<{
+			name: string;
+			sets: number;
+			reps: number;
+			restSeconds: number;
+			instructions: string;
+		}>;
+	}>;
+}
+
+/**
  * Response data for generate and store workout plan endpoint
  */
 export interface GenerateAndStoreWorkoutPlanResponseData {
 	id: string;
-	goal: string;
-	fitnessLevel: "beginner" | "intermediate" | "advanced";
-	frequency: number;
-	levels: ExercisePlanLevel[];
+	workoutPlan: WorkoutPlan;
 	createdAt: Date;
 	updatedAt: Date;
 }

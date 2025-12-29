@@ -8,6 +8,8 @@ export const challengeWeeks: Week[] = [
 		description:
 			"Lay the groundwork for your transformation journey by clarifying your vision and setting powerful intentions.",
 		unlocked: true,
+		image_url: "https://iwefxwhrvwsrvvkbhald.supabase.co/storage/v1/object/public/challenges/challenge_1.jpeg",
+		tag: "Scout",
 		focusAreas: [
 			{
 				id: "vision",
@@ -206,6 +208,8 @@ export const challengeWeeks: Week[] = [
 		description:
 			"Develop deep understanding of yourself, your patterns, and your current state.",
 		unlocked: false,
+		image_url: "https://iwefxwhrvwsrvvkbhald.supabase.co/storage/v1/object/public/challenges/challenge_2.jpeg",
+		tag: "Pathfinder",
 		focusAreas: [
 			{
 				id: "self-awareness",
@@ -402,6 +406,8 @@ export const challengeWeeks: Week[] = [
 		description:
 			"Build systems and relationships that keep you committed and on track.",
 		unlocked: false,
+		image_url: "https://iwefxwhrvwsrvvkbhald.supabase.co/storage/v1/object/public/challenges/challenge_3.jpeg",
+		tag: "Warrior",
 		focusAreas: [
 			{
 				id: "accountability",
@@ -596,6 +602,8 @@ export const challengeWeeks: Week[] = [
 		description:
 			"Build courage by facing your fears and taking bold action toward your goals despite uncertainty.",
 		unlocked: false,
+		image_url: "https://iwefxwhrvwsrvvkbhald.supabase.co/storage/v1/object/public/challenges/challenge_4.jpeg",
+		tag: "Veteran",
 		focusAreas: [
 			{
 				id: "courage",
@@ -789,6 +797,8 @@ export const challengeWeeks: Week[] = [
 		description:
 			"Cultivate a growth mindset and embrace continuous learning as a path to mastery and transformation.",
 		unlocked: false,
+		image_url: "https://iwefxwhrvwsrvvkbhald.supabase.co/storage/v1/object/public/challenges/challenge_5.jpeg",
+		tag: "Guardian",
 		focusAreas: [
 			{
 				id: "growth",
@@ -983,6 +993,8 @@ export const challengeWeeks: Week[] = [
 		description:
 			"Strengthen your relationships and build meaningful connections that support your growth and well-being.",
 		unlocked: false,
+		image_url: "https://iwefxwhrvwsrvvkbhald.supabase.co/storage/v1/object/public/challenges/challenge_6.jpeg",
+		tag: "Sentinel",
 		focusAreas: [
 			{
 				id: "connection",
@@ -1176,6 +1188,8 @@ export const challengeWeeks: Week[] = [
 		description:
 			"Create balance and harmony between different areas of your life, ensuring sustainable progress and well-being.",
 		unlocked: false,
+		image_url: "https://iwefxwhrvwsrvvkbhald.supabase.co/storage/v1/object/public/challenges/challenge_7.jpeg",
+		tag: "Champion",
 		focusAreas: [
 			{
 				id: "balance",
@@ -1369,6 +1383,8 @@ export const challengeWeeks: Week[] = [
 		description:
 			"Cultivate gratitude and appreciation for the abundance in your life, shifting focus to what is working.",
 		unlocked: false,
+		image_url: "https://iwefxwhrvwsrvvkbhald.supabase.co/storage/v1/object/public/challenges/challenge_8.jpeg",
+		tag: "Hero",
 		focusAreas: [
 			{
 				id: "gratitude",
@@ -1563,6 +1579,8 @@ export const challengeWeeks: Week[] = [
 		description:
 			"Build powerful habits that support your goals and create sustainable momentum toward your vision.",
 		unlocked: false,
+		image_url: "https://iwefxwhrvwsrvvkbhald.supabase.co/storage/v1/object/public/challenges/challenge_9.jpeg",
+		tag: "Master",
 		focusAreas: [
 			{
 				id: "habits",
@@ -1755,6 +1773,8 @@ export const challengeWeeks: Week[] = [
 		description:
 			"Break through limiting beliefs and obstacles that have been holding you back from achieving your full potential.",
 		unlocked: false,
+		image_url: "https://iwefxwhrvwsrvvkbhald.supabase.co/storage/v1/object/public/challenges/challenge_10.jpeg",
+		tag: "Grandmaster",
 		focusAreas: [
 			{
 				id: "breakthrough",
@@ -1948,6 +1968,8 @@ export const challengeWeeks: Week[] = [
 		description:
 			"Focus on mastery and excellence, refining your skills and deepening your expertise in areas that matter.",
 		unlocked: false,
+		image_url: "https://iwefxwhrvwsrvvkbhald.supabase.co/storage/v1/object/public/challenges/challenge_11.jpeg",
+		tag: "Legend",
 		focusAreas: [
 			{
 				id: "mastery",
@@ -2140,6 +2162,8 @@ export const challengeWeeks: Week[] = [
 		description:
 			"Celebrate your journey, acknowledge your achievements, and set intentions for continued growth beyond these 12 weeks.",
 		unlocked: false,
+		image_url: "https://iwefxwhrvwsrvvkbhald.supabase.co/storage/v1/object/public/challenges/challenge_12.jpeg",
+		tag: "Mythic",
 		focusAreas: [
 			{
 				id: "celebration",

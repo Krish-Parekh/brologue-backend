@@ -92,6 +92,8 @@ export interface Week {
 	theme: string;
 	description: string;
 	unlocked: boolean;
+	image_url: string;
+	tag: string;
 	focusAreas: FocusArea[];
 	mantras: Mantra[];
 	prompts: Prompt[];
