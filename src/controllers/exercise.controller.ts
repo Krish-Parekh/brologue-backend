@@ -8,8 +8,10 @@ import { workoutPlans } from "../db/schema/workout_plans";
 import type {
 	GenerateExercisePlanResponseData,
 	GetWorkoutPlanResponseData,
+	GenerateAndStoreWorkoutPlanResponseData,
 	WorkoutExerciseCompletionData,
 	WorkoutPlanData,
+	WorkoutPlan,
 } from "../types/exercise.types";
 import {
 	generateAndStoreWorkoutPlanRequestSchema,
@@ -18,6 +20,7 @@ import {
 } from "../types/exercise.types";
 import type { ApiResponse } from "../types/response";
 import { generateExercisePlanWithAI } from "../utils/ai";
+import { transformToWorkoutPlan } from "../utils/exercise";
 import Logger from "../utils/logger";
 
 export const generateAndStoreWorkoutPlan = async (
@@ -25,7 +28,7 @@ export const generateAndStoreWorkoutPlan = async (
 	response: Response,
 ) => {
 	const { userId } = request;
-	const { goal, fitnessLevel, frequency } =
+	const { goal, fitnessLevel, frequency, workoutType } =
 		generateAndStoreWorkoutPlanRequestSchema.parse(request.body);
 
 	const content = await generateExercisePlanWithAI(
@@ -34,41 +37,82 @@ export const generateAndStoreWorkoutPlan = async (
 		frequency,
 	);
 
-	const [storedPlan] = await db
-		.insert(workoutPlans)
-		.values({
-			userId,
-			goal,
-			fitnessLevel,
-			frequency,
-			planData: content,
-		})
-		.returning();
+	// Transform the AI response to WorkoutPlan format
+	const workoutPlan = transformToWorkoutPlan(content, workoutType);
 
-	if (!storedPlan) {
+	let storedPlan;
+	try {
+		// Check if user already has a workout plan (user_id is unique)
+		const existingPlan = await db
+			.select()
+			.from(workoutPlans)
+			.where(eq(workoutPlans.userId, userId))
+			.limit(1);
+
+		if (existingPlan[0]) {
+			// Update existing plan
+			[storedPlan] = await db
+				.update(workoutPlans)
+				.set({
+					goal,
+					fitnessLevel,
+					frequency,
+					workoutType,
+					planData: content,
+					workoutPlan: workoutPlan as any,
+					updatedAt: new Date(),
+				})
+				.where(eq(workoutPlans.userId, userId))
+				.returning();
+		} else {
+			// Create new plan
+			[storedPlan] = await db
+				.insert(workoutPlans)
+				.values({
+					userId,
+					goal,
+					fitnessLevel,
+					frequency,
+					workoutType,
+					planData: content,
+					workoutPlan: workoutPlan as any,
+				})
+				.returning();
+		}
+
+		if (!storedPlan) {
+			Logger.error(
+				`[generateAndStoreWorkoutPlan] No plan stored for userId: ${userId}`,
+			);
+			const apiResponse: ApiResponse<null> = {
+				code: StatusCodes.INTERNAL_SERVER_ERROR,
+				message: "Failed to store workout plan",
+				data: null,
+			};
+			return response.status(StatusCodes.INTERNAL_SERVER_ERROR).json(apiResponse);
+		}
+	} catch (error) {
 		Logger.error(
-			`[generateAndStoreWorkoutPlan] No plan stored for userId: ${userId}`,
+			`[generateAndStoreWorkoutPlan] Database error for userId: ${userId}`,
+			error,
 		);
 		const apiResponse: ApiResponse<null> = {
 			code: StatusCodes.INTERNAL_SERVER_ERROR,
-			message: "Failed to store workout plan",
+			message:
+				error instanceof Error
+					? `Failed to store workout plan: ${error.message}`
+					: "Failed to store workout plan",
 			data: null,
 		};
 		return response.status(StatusCodes.INTERNAL_SERVER_ERROR).json(apiResponse);
 	}
-	const apiResponse: ApiResponse<WorkoutPlanData> = {
+
+	const apiResponse: ApiResponse<GenerateAndStoreWorkoutPlanResponseData> = {
 		code: StatusCodes.OK,
 		message: "Workout plan generated and stored successfully",
 		data: {
 			id: storedPlan.id,
-			userId: storedPlan.userId,
-			goal: storedPlan.goal,
-			fitnessLevel: storedPlan.fitnessLevel as
-				| "beginner"
-				| "intermediate"
-				| "advanced",
-			frequency: storedPlan.frequency,
-			planData: storedPlan.planData as GenerateExercisePlanResponseData,
+			workoutPlan: storedPlan.workoutPlan as WorkoutPlan,
 			createdAt: storedPlan.createdAt,
 			updatedAt: storedPlan.updatedAt,
 		},
@@ -115,16 +159,16 @@ export const getUserWorkoutPlan = async (
 	const completedExercises = statsResult[0]?.count ?? 0;
 	const maxLevel = statsResult[0]?.maxLevel ?? null;
 
-	const planData: WorkoutPlanData = {
-		id: plan.id,
-		userId: plan.userId,
-		goal: plan.goal,
-		fitnessLevel: plan.fitnessLevel as "beginner" | "intermediate" | "advanced",
-		frequency: plan.frequency,
-		planData: plan.planData as GenerateExercisePlanResponseData,
-		createdAt: plan.createdAt,
-		updatedAt: plan.updatedAt,
-	};
+	// Handle legacy plans that might not have workoutPlan stored
+	let workoutPlanData: WorkoutPlan;
+	if (plan.workoutPlan) {
+		workoutPlanData = plan.workoutPlan as WorkoutPlan;
+	} else {
+		// Fallback: transform from planData if workoutPlan doesn't exist (backward compatibility)
+		const planData = plan.planData as GenerateExercisePlanResponseData;
+		const defaultWorkoutType = plan.workoutType || "Strength training";
+		workoutPlanData = transformToWorkoutPlan(planData, defaultWorkoutType);
+	}
 
 	const completionData: WorkoutExerciseCompletionData[] = completions.map(
 		(c) => ({
@@ -144,7 +188,12 @@ export const getUserWorkoutPlan = async (
 	);
 
 	const responseData: GetWorkoutPlanResponseData = {
-		plan: planData,
+		plan: {
+			id: plan.id,
+			workoutPlan: workoutPlanData,
+			createdAt: plan.createdAt,
+			updatedAt: plan.updatedAt,
+		},
 		completions: completionData,
 		statistics: {
 			goalCompletionPercentage: 0, // Can be calculated if needed
@@ -377,11 +426,16 @@ export const updateExercisePlan = async (
 	exercise.sets = sets;
 	exercise.reps = reps;
 
+	// Re-transform the workoutPlan since planData changed
+	const workoutType = plan.workoutType || "Strength training";
+	const updatedWorkoutPlan = transformToWorkoutPlan(planData, workoutType);
+
 	// Update the plan in the database
 	const [updated] = await db
 		.update(workoutPlans)
 		.set({
 			planData: planData as any,
+			workoutPlan: updatedWorkoutPlan as any,
 			updatedAt: new Date(),
 		})
 		.where(eq(workoutPlans.id, plan.id))
@@ -391,19 +445,12 @@ export const updateExercisePlan = async (
 		throw new Error("Failed to update workout plan");
 	}
 
-	const apiResponse: ApiResponse<WorkoutPlanData> = {
+	const apiResponse: ApiResponse<GenerateAndStoreWorkoutPlanResponseData> = {
 		code: StatusCodes.OK,
 		message: "Exercise plan updated successfully",
 		data: {
 			id: updated.id,
-			userId: updated.userId,
-			goal: updated.goal,
-			fitnessLevel: updated.fitnessLevel as
-				| "beginner"
-				| "intermediate"
-				| "advanced",
-			frequency: updated.frequency,
-			planData: updated.planData as GenerateExercisePlanResponseData,
+			workoutPlan: updated.workoutPlan as WorkoutPlan,
 			createdAt: updated.createdAt,
 			updatedAt: updated.updatedAt,
 		},
