@@ -21,6 +21,7 @@ import {
 import type { ApiResponse } from "../types/response";
 import { generateExercisePlanWithAI } from "../utils/ai";
 import { transformToWorkoutPlan } from "../utils/exercise";
+import { checkAndAwardBadges } from "../utils/badges";
 import Logger from "../utils/logger";
 
 export const generateAndStoreWorkoutPlan = async (
@@ -365,6 +366,37 @@ export const updateExerciseCompletion = async (
 			createdAt: created.createdAt,
 			updatedAt: created.updatedAt,
 		};
+	}
+
+	// Check and award badges (only if completion was successful and not deleted)
+	if (completion.completedSets > 0 || completion.completedReps > 0) {
+		try {
+			const newlyEarnedBadges = await checkAndAwardBadges(userId, {
+				completedAt: completion.completedAt,
+				completedReps: completion.completedReps,
+			});
+
+			// Include newly earned badges in response if any
+			if (newlyEarnedBadges.length > 0) {
+				const apiResponse: ApiResponse<
+					WorkoutExerciseCompletionData & { newlyEarnedBadges?: string[] }
+				> = {
+					code: StatusCodes.OK,
+					message: "Exercise completion updated successfully",
+					data: {
+						...completion,
+						newlyEarnedBadges,
+					},
+				};
+				return response.status(StatusCodes.OK).json(apiResponse);
+			}
+		} catch (error) {
+			// Log error but don't fail the request if badge checking fails
+			Logger.error(
+				`[updateExerciseCompletion] Badge checking failed for userId: ${userId}`,
+				error,
+			);
+		}
 	}
 
 	const apiResponse: ApiResponse<WorkoutExerciseCompletionData> = {

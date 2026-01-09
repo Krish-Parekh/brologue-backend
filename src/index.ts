@@ -5,6 +5,7 @@ import cors from "cors";
 import express from "express";
 import { errorHandler } from "./middleware/error.middleware";
 import {
+	badgeRouter,
 	challengeRouter,
 	exerciseRouter,
 	healthRouter,
@@ -26,6 +27,7 @@ app.use(clerkMiddleware());
 app.use(compression());
 
 app.use("/api/v1/health", healthRouter);
+app.use("/api/v1/badge", badgeRouter);
 app.use("/api/v1/challenge", challengeRouter);
 app.use("/api/v1/mood", moodRouter);
 app.use("/api/v1/user", userRouter);
