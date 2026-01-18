@@ -335,3 +335,95 @@ export const generateExercisePlanWithAI = async (
 
 	return content;
 };
+
+// ============================================================================
+// Mood Recommendation AI
+// ============================================================================
+
+export const moodRecommendationResponseSchema = z
+	.object({
+		recommendation: z
+			.string()
+			.min(1, "Recommendation is required")
+			.max(300, "Recommendation should be concise"),
+	})
+	.strict();
+
+export interface MoodRecommendationResponseData {
+	recommendation: string;
+}
+
+const getMoodSystemMessage = (
+	energy: string,
+	state: string[],
+	pressurePoint: string,
+) => {
+	return `You are a wise and concise mentor.
+
+YOUR MISSION:
+Generate a SINGLE, ACTIONABLE recommendation for a user based on their current mental check-in.
+Do NOT give a list of advice. Do NOT overwhelm the user. Give ONE specific thing they can do right now or keep in mind.
+
+USER CONTEXT:
+- Energy Level: ${energy}
+- Current State: ${state.join(", ")}
+- Main Pressure Point: ${pressurePoint}
+
+GUIDELINES:
+- If energy is Low, suggest something restorative or a small win.
+- If energy is High, suggest channeling it into the pressure point or a challenging task.
+- Address the specific states (e.g., if "Stressed", suggest grounding; if "Focused", suggest deep work).
+- The recommendation must be relevant to the "Pressure Point" (e.g., if "Work", relates to workflow; if "Body", relates to movement/rest).
+- Keep it under 2 sentences.
+- Tone: Empathetic, Direct, Brotherly (Brologue style - tough love but supportive).
+
+OUTPUT:
+Return ONLY the JSON object with the "recommendation" field.`;
+};
+
+export const generateMoodRecommendation = async (
+	energy: string,
+	state: string[],
+	pressurePoint: string,
+): Promise<string> => {
+	Logger.debug(
+		`[generateMoodRecommendation] Generating advice for Energy: ${energy}, State: ${state}, Pressure: ${pressurePoint}`,
+	);
+
+	const systemMessage = getMoodSystemMessage(energy, state, pressurePoint);
+	const userMessage = "Give me my recommendation.";
+
+	try {
+		const groqResponse = await groq.chat.completions.create({
+			model: "openai/gpt-oss-120b",
+			messages: [
+				{ role: "system", content: systemMessage },
+				{ role: "user", content: userMessage },
+			],
+			temperature: 0.7,
+			max_completion_tokens: 1024,
+			top_p: 1,
+			stream: false,
+			response_format: {
+				type: "json_schema",
+				json_schema: {
+					name: "mood_recommendation",
+					schema: z.toJSONSchema(moodRecommendationResponseSchema),
+					strict: true,
+				},
+			},
+		});
+
+		const rawContent = groqResponse.choices[0]?.message?.content || "{}";
+		const parsedContent = JSON.parse(rawContent);
+		const result = moodRecommendationResponseSchema.parse(parsedContent);
+
+		return result.recommendation;
+	} catch (error) {
+		Logger.error(
+			`[generateMoodRecommendation] Error generating advice: ${error instanceof Error ? error.message : String(error)}`,
+		);
+		// Fallback advice if AI fails
+		return "Take a deep breath and focus on the next immediate step.";
+	}
+};

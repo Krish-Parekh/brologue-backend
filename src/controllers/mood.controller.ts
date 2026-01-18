@@ -15,23 +15,9 @@ import {
 import type { ApiResponse } from "../types/response";
 import { getTodayString } from "../utils/helper";
 import Logger from "../utils/logger";
+import { generateMoodRecommendation } from "../utils/ai";
 
-// ============================================================================
-// Controllers
-// ============================================================================
 
-/**
- * Create or update a mood entry for a specific date
- *
- * Logic:
- * 1. Validates request body (mood_id required, date optional - defaults to today)
- * 2. Uses onConflictDoUpdate to upsert mood entry
- * 3. If entry exists for that date, updates mood_id and updatedAt
- * 4. If entry doesn't exist, creates new entry
- *
- * @route POST /api/v1/mood
- * @returns Created/updated mood entry
- */
 export const createOrUpdateMood = async (
 	request: Request,
 	response: Response,
@@ -39,12 +25,29 @@ export const createOrUpdateMood = async (
 	const { userId } = request;
 	Logger.debug(`[createOrUpdateMood] Request started for userId: ${userId}`);
 
-	const { mood_id, date } = createMoodRequestSchema.parse(request.body);
+	const { mood_id, date, energy, state, pressure_point } =
+		createMoodRequestSchema.parse(request.body);
 	const moodDate = date || getTodayString();
 
 	Logger.debug(
 		`[createOrUpdateMood] Creating/updating mood for userId: ${userId}, mood_id: ${mood_id}, date: ${moodDate}`,
 	);
+
+	// Generate recommendation if we have the full context
+	let recommendation: string | null = null;
+	if (energy && state && pressure_point) {
+		try {
+			recommendation = await generateMoodRecommendation(
+				energy,
+				state,
+				pressure_point,
+			);
+		} catch (error) {
+			Logger.warn(
+				`[createOrUpdateMood] Failed to generate recommendation: ${error}`,
+			);
+		}
+	}
 
 	// Upsert mood entry using onConflictDoUpdate
 	const [moodEntry] = await db
@@ -52,12 +55,20 @@ export const createOrUpdateMood = async (
 		.values({
 			userId,
 			mood_id,
+			energy: energy || null,
+			state: state ? JSON.stringify(state) : null, // Store as JSON string if array
+			pressure_point: pressure_point || null,
+			recommendation: recommendation || null,
 			date: moodDate as string,
 		})
 		.onConflictDoUpdate({
 			target: [mood.userId, mood.date],
 			set: {
 				mood_id,
+				energy: energy || null,
+				state: state ? JSON.stringify(state) : null,
+				pressure_point: pressure_point || null,
+				recommendation: recommendation || null,
 				updatedAt: new Date(),
 			},
 		})
@@ -78,12 +89,6 @@ export const createOrUpdateMood = async (
 	return response.status(StatusCodes.OK).json(apiResponse);
 };
 
-/**
- * Get mood entry for today
- *
- * @route GET /api/v1/mood
- * @returns Today's mood entry or null if not found
- */
 export const getTodayMood = async (request: Request, response: Response) => {
 	const { userId } = request;
 	const today: string = getTodayString();
@@ -112,12 +117,6 @@ export const getTodayMood = async (request: Request, response: Response) => {
 	return response.status(StatusCodes.OK).json(apiResponse);
 };
 
-/**
- * Get mood entry for a specific date
- *
- * @route GET /api/v1/mood/:date
- * @returns Mood entry for the specified date or null if not found
- */
 export const getMoodByDate = async (request: Request, response: Response) => {
 	const { userId } = request;
 	Logger.debug(`[getMoodByDate] Request started for userId: ${userId}`);

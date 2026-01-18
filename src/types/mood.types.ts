@@ -14,6 +14,9 @@ import { z } from "zod";
 export const createMoodRequestSchema = z
 	.object({
 		mood_id: z.string().min(1, "mood_id is required"),
+		energy: z.enum(["Low", "Medium", "High"]).optional(),
+		state: z.array(z.string()).optional(),
+		pressure_point: z.string().optional(),
 		date: z
 			.string()
 			.regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be in YYYY-MM-DD format")
@@ -41,6 +44,9 @@ export const getMoodRequestSchema = z
  */
 export interface CreateMoodRequestBody {
 	mood_id: string;
+	energy?: "Low" | "Medium" | "High";
+	state?: string[];
+	pressure_point?: string;
 	date?: string; // Optional, defaults to today if not provided
 }
 
@@ -61,6 +67,10 @@ export interface GetMoodRequestParams {
 export interface MoodEntry {
 	userId: string;
 	mood_id: string;
+	energy: string | null;
+	state: string | null;
+	pressure_point: string | null;
+	recommendation: string | null;
 	date: string;
 	createdAt: Date;
 	updatedAt: Date;
