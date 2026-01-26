@@ -14,7 +14,7 @@ import { z } from "zod";
 export const createMoodRequestSchema = z
 	.object({
 		mood_id: z.string().min(1, "mood_id is required"),
-		energy: z.enum(["Low", "Medium", "High"]).optional(),
+		energy: z.enum(["Low", "Normal", "High"]).optional(),
 		state: z.array(z.string()).optional(),
 		pressure_point: z.string().optional(),
 		date: z

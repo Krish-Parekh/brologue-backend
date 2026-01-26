@@ -31,38 +31,38 @@ type ValidationSource = "body" | "params" | "query";
 
 const createValidator =
 	(source: ValidationSource) =>
-	<T extends z.ZodTypeAny>(schema: T) => {
-		return (req: Request, res: Response, next: NextFunction) => {
-			const dataToValidate =
-				source === "body"
-					? req.body
-					: source === "params"
-						? req.params
-						: req.query;
+		<T extends z.ZodTypeAny>(schema: T) => {
+			return (req: Request, res: Response, next: NextFunction) => {
+				const dataToValidate =
+					source === "body"
+						? req.body
+						: source === "params"
+							? req.params
+							: req.query;
 
-			// Use safeParse to validate without throwing
-			const result = schema.safeParse(dataToValidate);
+				// Use safeParse to validate without throwing
+				const result = schema.safeParse(dataToValidate);
 
-			if (!result.success) {
-				const userId = (req as any).userId || "unknown";
-				Logger.warn(
-					`[validate] Validation failed for ${source}, userId: ${userId}, errors: ${JSON.stringify(result.error.issues)}`,
-				);
+				if (!result.success) {
+					const userId = (req as any).userId || "unknown";
+					Logger.warn(
+						`[validate] Validation failed for ${source}, userId: ${userId}, errors: ${JSON.stringify(result.error.issues)}`,
+					);
 
-				const apiResponse: ApiResponse<null> = {
-					code: StatusCodes.BAD_REQUEST,
-					message: "Validation failed",
-					data: null,
-				};
+					const apiResponse: ApiResponse<null> = {
+						code: StatusCodes.BAD_REQUEST,
+						message: "Validation failed",
+						data: null,
+					};
 
-				return res.status(StatusCodes.BAD_REQUEST).json(apiResponse);
-			}
+					return res.status(StatusCodes.BAD_REQUEST).json(apiResponse);
+				}
 
-			// Validation passed, continue to next middleware/controller
-			// Controller will use parse() to get typed data
-			next();
+				// Validation passed, continue to next middleware/controller
+				// Controller will use parse() to get typed data
+				next();
+			};
 		};
-	};
 
 /**
  * Validates request body against a Zod schema
